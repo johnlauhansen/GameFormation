@@ -1,5 +1,6 @@
 #pragma once
 #include "player.h"
+#include "destructible.h"
 #include "map/tile_map.h"
 #include <raylib.h>
 #include <vector>
@@ -38,6 +39,7 @@ private:
     Camera2D m_camera;
 
     std::vector<GroundPickup> m_pickups;
+    std::vector<Destructible> m_destructibles;
     
     /* Notification d'objet collecté temporaire */
     std::string m_notificationText;

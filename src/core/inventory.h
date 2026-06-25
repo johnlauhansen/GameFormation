@@ -15,6 +15,16 @@ enum class ElementType
 };
 
 /*
+ * Énumération des types de dégâts physiques applicables aux armes.
+ */
+enum class DamageType
+{
+    Piercing,  /* Perçant */
+    Slashing,  /* Tranchant */
+    Blunt      /* Contondant */
+};
+
+/*
  * Structure représentant une instance d'un objet (arme ou équipement).
  * Contient les statistiques améliorables à la forge ainsi que son état de collecte.
  */
@@ -29,6 +39,7 @@ struct Item
     float speed = 0.0f;      /* Vitesse de vol (boomerang) ou cadence d'attaque (épée) */
     float range = 0.0f;      /* Portée de la hitbox d'attaque ou distance max de vol */
     ElementType element = ElementType::None; /* Affinité magique active */
+    DamageType damageType = DamageType::Slashing; /* Type de dégâts physiques de l'arme */
 
     int level = 1;           /* Niveau d'amélioration général de l'arme */
 };
@@ -54,6 +65,7 @@ public:
         sword.speed = 1.0f;
         sword.range = 24.0f;
         sword.element = ElementType::None;
+        sword.damageType = DamageType::Slashing;
         sword.level = 1;
 
         Item boomerang;
@@ -64,6 +76,7 @@ public:
         boomerang.speed = 350.0f;
         boomerang.range = 150.0f;
         boomerang.element = ElementType::None;
+        boomerang.damageType = DamageType::Blunt;
         boomerang.level = 1;
 
         m_items.push_back(sword);

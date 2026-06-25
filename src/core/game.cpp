@@ -474,7 +474,20 @@ void Game::DrawInventoryMenu(const Player& player) const
         DrawText(TextFormat("%s (Nv. %d)", sword->name.c_str(), sword->level), 150, 175, 15, GREEN);
         
         /* Stats Épée */
-        DrawText(TextFormat("Degats : %0.1f", sword->damage), 150, 200, 13, LIGHTGRAY);
+        const char* dmgTypeName = "Inconnu";
+        if (sword->damageType == DamageType::Piercing)
+        {
+            dmgTypeName = "Percant";
+        }
+        else if (sword->damageType == DamageType::Slashing)
+        {
+            dmgTypeName = "Tranchant";
+        }
+        else if (sword->damageType == DamageType::Blunt)
+        {
+            dmgTypeName = "Contondant";
+        }
+        DrawText(TextFormat("Degats : %0.1f (%s)", sword->damage, dmgTypeName), 150, 200, 13, LIGHTGRAY);
         DrawText(TextFormat("Portee : %0.1f px", sword->range), 150, 220, 13, LIGHTGRAY);
         
         const char* elemName = "Aucun";
@@ -521,7 +534,20 @@ void Game::DrawInventoryMenu(const Player& player) const
         DrawText(TextFormat("%s (Nv. %d)", boom->name.c_str(), boom->level), 150, 355, 15, SKYBLUE);
         
         /* Stats Boomerang */
-        DrawText(TextFormat("Degats : %0.1f", boom->damage), 150, 380, 13, LIGHTGRAY);
+        const char* dmgTypeName = "Inconnu";
+        if (boom->damageType == DamageType::Piercing)
+        {
+            dmgTypeName = "Percant";
+        }
+        else if (boom->damageType == DamageType::Slashing)
+        {
+            dmgTypeName = "Tranchant";
+        }
+        else if (boom->damageType == DamageType::Blunt)
+        {
+            dmgTypeName = "Contondant";
+        }
+        DrawText(TextFormat("Degats : %0.1f (%s)", boom->damage, dmgTypeName), 150, 380, 13, LIGHTGRAY);
         DrawText(TextFormat("Vitesse: %0.1f px/s", boom->speed), 150, 400, 13, LIGHTGRAY);
         DrawText(TextFormat("Portee : %0.1f px", boom->range), 150, 420, 13, LIGHTGRAY);
 

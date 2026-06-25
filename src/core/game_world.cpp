@@ -23,10 +23,73 @@ void GameWorld::Update(float deltaTime)
     const Vector2 currentPos = m_player.GetPosition();
     const Rectangle collisionRect = m_player.GetCollisionRect();
 
+    /* 1. Collisions contre les murs de la carte (TileMap) */
     if (m_tileMap.CheckCollision(collisionRect))
     {
         const Vector2 resolvedPos = m_tileMap.ResolveCollision(currentPos, oldPos, collisionRect.width, collisionRect.height);
         m_player.SetPosition(resolvedPos);
+    }
+
+    /* 2. Mettre à jour les objets destructibles */
+    for (auto& dest : m_destructibles)
+    {
+        dest.Update(deltaTime);
+    }
+
+    /* 3. Collisions glissantes contre les objets destructibles physiques solides */
+    const Vector2 posAfterTileCheck = m_player.GetPosition();
+    Vector2 finalPos = posAfterTileCheck;
+
+    /* Essai sur l'axe X */
+    m_player.SetPosition({ posAfterTileCheck.x, oldPos.y });
+    bool collideX = false;
+    for (const auto& dest : m_destructibles)
+    {
+        if (dest.IsAlive() && CheckCollisionRecs(m_player.GetCollisionRect(), dest.GetCollisionRect()))
+        {
+            collideX = true;
+            break;
+        }
+    }
+    if (collideX)
+    {
+        finalPos.x = oldPos.x;
+    }
+
+    /* Essai sur l'axe Y */
+    m_player.SetPosition({ finalPos.x, posAfterTileCheck.y });
+    bool collideY = false;
+    for (const auto& dest : m_destructibles)
+    {
+        if (dest.IsAlive() && CheckCollisionRecs(m_player.GetCollisionRect(), dest.GetCollisionRect()))
+        {
+            collideY = true;
+            break;
+        }
+    }
+    if (collideY)
+    {
+        finalPos.y = oldPos.y;
+    }
+
+    m_player.SetPosition(finalPos);
+
+    /* 4. Détection des attaques à l'épée sur les objets destructibles */
+    if (m_player.GetState() == PlayerState::Attacking)
+    {
+        const Rectangle attackRect = m_player.GetAttackRect();
+        const Item* sword = m_player.GetInventory().GetItem("sword");
+        if (sword != nullptr && sword->collected)
+        {
+            for (auto& dest : m_destructibles)
+            {
+                if (dest.IsAlive() && CheckCollisionRecs(attackRect, dest.GetCollisionRect()))
+                {
+                    /* L'épée inflige ses dégâts avec son type physique et son élément magique actifs */
+                    dest.TakeDamage(sword->damage, sword->damageType, sword->element);
+                }
+            }
+        }
     }
 
     /* Détection de collecte d'objets */
@@ -35,7 +98,7 @@ void GameWorld::Update(float deltaTime)
         if (pickup.active)
         {
             Rectangle pickupRect = { pickup.position.x - 12.0f, pickup.position.y - 12.0f, 24.0f, 24.0f };
-            if (CheckCollisionRecs(collisionRect, pickupRect))
+            if (CheckCollisionRecs(m_player.GetCollisionRect(), pickupRect))
             {
                 pickup.active = false;
                 m_player.GetInventory().AddItem(pickup.itemId);
@@ -62,6 +125,12 @@ void GameWorld::Draw() const
     BeginMode2D(m_camera);
 
     m_tileMap.Draw();
+
+    /* Dessiner les objets destructibles */
+    for (const auto& dest : m_destructibles)
+    {
+        dest.Draw();
+    }
 
     /* Dessiner les objets au sol */
     for (const auto& pickup : m_pickups)
@@ -126,6 +195,22 @@ void GameWorld::Reset()
 
     m_pickups.push_back(swordPickup);
     m_pickups.push_back(boomerangPickup);
+
+    /* Repopuler les objets destructibles */
+    m_destructibles.clear();
+
+    Destructible crate1(DestructibleType::Crate, { (float)TileMap::kTileSize * 6.5f, (float)TileMap::kTileSize * 4.5f });
+    Destructible plant1(DestructibleType::Plant, { (float)TileMap::kTileSize * 8.5f, (float)TileMap::kTileSize * 4.5f });
+    
+    /* Monument mystique Custom : vulnérable aux attaques contondantes (Blunt) OU au Feu (Fire) ! */
+    Destructible customObj(DestructibleType::Custom, { (float)TileMap::kTileSize * 7.5f, (float)TileMap::kTileSize * 5.5f });
+    customObj.AddVulnerableDamageType(DamageType::Blunt);
+    customObj.AddVulnerableElement(ElementType::Fire);
+    customObj.SetMaxHealth(50.0f);
+
+    m_destructibles.push_back(crate1);
+    m_destructibles.push_back(plant1);
+    m_destructibles.push_back(customObj);
 
     m_camera.target = m_player.GetPosition();
     m_notificationTimer = 0.0f;

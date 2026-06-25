@@ -1,5 +1,6 @@
 #include <raylib.h>
 #include "core/player.h"
+#include "core/destructible.h"
 #include "map/tile_map.h"
 #include "map/map_loader.h"
 #include <cmath>
@@ -167,7 +168,21 @@ void DrawSandboxInventoryMenu(const Player& player)
     {
         const Item* sword = inv.GetItem("sword");
         DrawText(TextFormat("%s (Nv. %d)", sword->name.c_str(), sword->level), 150, 175, 15, GREEN);
-        DrawText(TextFormat("Degats : %0.1f", sword->damage), 150, 200, 13, LIGHTGRAY);
+        
+        const char* dmgTypeName = "Inconnu";
+        if (sword->damageType == DamageType::Piercing)
+        {
+            dmgTypeName = "Percant";
+        }
+        else if (sword->damageType == DamageType::Slashing)
+        {
+            dmgTypeName = "Tranchant";
+        }
+        else if (sword->damageType == DamageType::Blunt)
+        {
+            dmgTypeName = "Contondant";
+        }
+        DrawText(TextFormat("Degats : %0.1f (%s)", sword->damage, dmgTypeName), 150, 200, 13, LIGHTGRAY);
         DrawText(TextFormat("Portee : %0.1f px", sword->range), 150, 220, 13, LIGHTGRAY);
         
         const char* elemName = "Aucun";
@@ -209,7 +224,21 @@ void DrawSandboxInventoryMenu(const Player& player)
     {
         const Item* boom = inv.GetItem("boomerang");
         DrawText(TextFormat("%s (Nv. %d)", boom->name.c_str(), boom->level), 150, 355, 15, SKYBLUE);
-        DrawText(TextFormat("Degats : %0.1f", boom->damage), 150, 380, 13, LIGHTGRAY);
+        
+        const char* dmgTypeName = "Inconnu";
+        if (boom->damageType == DamageType::Piercing)
+        {
+            dmgTypeName = "Percant";
+        }
+        else if (boom->damageType == DamageType::Slashing)
+        {
+            dmgTypeName = "Tranchant";
+        }
+        else if (boom->damageType == DamageType::Blunt)
+        {
+            dmgTypeName = "Contondant";
+        }
+        DrawText(TextFormat("Degats : %0.1f (%s)", boom->damage, dmgTypeName), 150, 380, 13, LIGHTGRAY);
         DrawText(TextFormat("Vitesse: %0.1f px/s", boom->speed), 150, 400, 13, LIGHTGRAY);
         DrawText(TextFormat("Portee : %0.1f px", boom->range), 150, 420, 13, LIGHTGRAY);
 
@@ -282,6 +311,7 @@ int main(void)
 
     /* Objets au sol dans le Sandbox */
     std::vector<SandboxGroundPickup> sandboxPickups;
+    std::vector<Destructible> sandboxDestructibles;
     bool isInventoryOpen = false;
 
     /* Notification */
@@ -359,6 +389,21 @@ int main(void)
                             sandboxPickups.push_back(s1);
                             sandboxPickups.push_back(s2);
 
+                            /* Repopuler les objets destructibles */
+                            sandboxDestructibles.clear();
+                            Destructible crate1(DestructibleType::Crate, { spawnPos.x - 40.0f, spawnPos.y + 40.0f });
+                            Destructible plant1(DestructibleType::Plant, { spawnPos.x + 40.0f, spawnPos.y + 40.0f });
+                            
+                            /* Monument magique Custom : vulnérable à Blunt OU au Feu (Fire) */
+                            Destructible customObj(DestructibleType::Custom, { spawnPos.x, spawnPos.y - 60.0f });
+                            customObj.AddVulnerableDamageType(DamageType::Blunt);
+                            customObj.AddVulnerableElement(ElementType::Fire);
+                            customObj.SetMaxHealth(50.0f);
+                            
+                            sandboxDestructibles.push_back(crate1);
+                            sandboxDestructibles.push_back(plant1);
+                            sandboxDestructibles.push_back(customObj);
+
                             isMapLoaded = true;
                             isInventoryOpen = false;
                             notificationTimer = 0.0f;
@@ -397,6 +442,21 @@ int main(void)
                     SandboxGroundPickup s2 = { "boomerang", "BOOMERANG DE TEST", { spawnPos.x + 80.0f, spawnPos.y }, true };
                     sandboxPickups.push_back(s1);
                     sandboxPickups.push_back(s2);
+
+                    /* Repopuler les objets destructibles */
+                    sandboxDestructibles.clear();
+                    Destructible crate1(DestructibleType::Crate, { spawnPos.x - 40.0f, spawnPos.y + 40.0f });
+                    Destructible plant1(DestructibleType::Plant, { spawnPos.x + 40.0f, spawnPos.y + 40.0f });
+                    
+                    /* Monument magique Custom : vulnérable à Blunt OU au Feu (Fire) */
+                    Destructible customObj(DestructibleType::Custom, { spawnPos.x, spawnPos.y - 60.0f });
+                    customObj.AddVulnerableDamageType(DamageType::Blunt);
+                    customObj.AddVulnerableElement(ElementType::Fire);
+                    customObj.SetMaxHealth(50.0f);
+                    
+                    sandboxDestructibles.push_back(crate1);
+                    sandboxDestructibles.push_back(plant1);
+                    sandboxDestructibles.push_back(customObj);
 
                     isMapLoaded = true;
                     isInventoryOpen = false;
@@ -491,6 +551,67 @@ int main(void)
                     player.SetPosition(resolvedPos);
                 }
 
+                /* Mettre à jour les objets destructibles */
+                for (auto& dest : sandboxDestructibles)
+                {
+                    dest.Update(deltaTime);
+                }
+
+                /* Collisions glissantes contre les objets destructibles physiques solides */
+                const Vector2 posAfterTileCheck = player.GetPosition();
+                Vector2 finalPos = posAfterTileCheck;
+
+                /* Essai sur l'axe X */
+                player.SetPosition({ posAfterTileCheck.x, oldPos.y });
+                bool collideX = false;
+                for (const auto& dest : sandboxDestructibles)
+                {
+                    if (dest.IsAlive() && CheckCollisionRecs(player.GetCollisionRect(), dest.GetCollisionRect()))
+                    {
+                        collideX = true;
+                        break;
+                    }
+                }
+                if (collideX)
+                {
+                    finalPos.x = oldPos.x;
+                }
+
+                /* Essai sur l'axe Y */
+                player.SetPosition({ finalPos.x, posAfterTileCheck.y });
+                bool collideY = false;
+                for (const auto& dest : sandboxDestructibles)
+                {
+                    if (dest.IsAlive() && CheckCollisionRecs(player.GetCollisionRect(), dest.GetCollisionRect()))
+                    {
+                        collideY = true;
+                        break;
+                    }
+                }
+                if (collideY)
+                {
+                    finalPos.y = oldPos.y;
+                }
+
+                player.SetPosition(finalPos);
+
+                /* Détection des attaques à l'épée sur les objets destructibles */
+                if (player.GetState() == PlayerState::Attacking)
+                {
+                    const Rectangle attackRect = player.GetAttackRect();
+                    const Item* sword = player.GetInventory().GetItem("sword");
+                    if (sword != nullptr && sword->collected)
+                    {
+                        for (auto& dest : sandboxDestructibles)
+                        {
+                            if (dest.IsAlive() && CheckCollisionRecs(attackRect, dest.GetCollisionRect()))
+                            {
+                                dest.TakeDamage(sword->damage, sword->damageType, sword->element);
+                            }
+                        }
+                    }
+                }
+
                 /* Collecte de Pickups sol */
                 for (auto& p : sandboxPickups)
                 {
@@ -580,6 +701,24 @@ int main(void)
                         const float distance = std::sqrt((dx * dx) + (dy * dy));
 
                         const Rectangle boomRect = { boomerang.position.x - 8.0f, boomerang.position.y - 8.0f, 16.0f, 16.0f };
+                        
+                        /* Collision du boomerang contre les objets destructibles */
+                        const Item* boomStats = player.GetInventory().GetItem("boomerang");
+                        if (boomStats != nullptr)
+                        {
+                            for (auto& dest : sandboxDestructibles)
+                            {
+                                if (dest.IsAlive() && CheckCollisionRecs(boomRect, dest.GetCollisionRect()))
+                                {
+                                    if (dest.TakeDamage(boomStats->damage, boomStats->damageType, boomStats->element))
+                                    {
+                                        boomerang.returning = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
                         if (distance >= boomerang.maxRange || tileMap.CheckCollision(boomRect))
                         {
                             boomerang.returning = true;
@@ -616,6 +755,12 @@ int main(void)
             /* Tout ce qui est dans l'espace monde se dessine par rapport à la caméra */
             BeginMode2D(camera);
                 tileMap.Draw();
+
+                /* Dessiner les objets destructibles */
+                for (const auto& dest : sandboxDestructibles)
+                {
+                    dest.Draw();
+                }
 
                 /* Dessiner les pickups au sol */
                 for (const auto& p : sandboxPickups)

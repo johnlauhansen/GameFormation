@@ -63,6 +63,8 @@ set(CORE_SOURCES
     src/core/player.h
     src/core/player.cpp
     src/core/inventory.h
+    src/core/destructible.h
+    src/core/destructible.cpp
     src/core/game_world.h
     src/core/game_world.cpp
     src/core/game.h
