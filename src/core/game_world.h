@@ -14,6 +14,18 @@ struct GroundPickup
     bool active = true;
 };
 
+struct BoomerangProjectile
+{
+    Vector2 position = { 0.0f, 0.0f };
+    Vector2 velocity = { 0.0f, 0.0f };
+    bool active = false;
+    bool returning = false;
+    float speed = 350.0f;
+    float rotation = 0.0f;
+    float maxRange = 150.0f;
+    Vector2 originPos = { 0.0f, 0.0f };
+};
+
 class GameWorld
 {
 public:
@@ -22,6 +34,13 @@ public:
     void Update(float deltaTime);
     void Draw() const;
     void Reset();
+
+    /*
+     * Charge une carte dynamique et réinitialise tous les objets, destructibles et joueurs.
+     * @param[in] filePath Chemin du fichier de carte JSON.
+     * @return true si le chargement a réussi, false sinon.
+     */
+    bool LoadMap(const std::string& filePath);
 
     [[nodiscard]] Player& GetPlayer()
     {
@@ -40,6 +59,7 @@ private:
 
     std::vector<GroundPickup> m_pickups;
     std::vector<Destructible> m_destructibles;
+    BoomerangProjectile m_boomerang;
     
     /* Notification d'objet collecté temporaire */
     std::string m_notificationText;

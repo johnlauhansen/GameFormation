@@ -1,4 +1,6 @@
 #include "game_world.h"
+#include "map/map_loader.h"
+#include <cmath>
 
 GameWorld::GameWorld()
     : m_player({ (float)TileMap::kTileSize * 2.5f, (float)TileMap::kTileSize * 2.5f })
@@ -12,6 +14,77 @@ GameWorld::GameWorld()
     m_camera.zoom = 1.2f;
 
     Reset();
+}
+
+bool GameWorld::LoadMap(const std::string& filePath)
+{
+    auto levelOpt = MapLoader::LoadFromJson(filePath);
+    if (!levelOpt.has_value())
+    {
+        return false;
+    }
+
+    m_tileMap.LoadLevel(levelOpt.value());
+
+    /* 1. Recherche du point d'apparition du joueur défini dans la carte Tiled */
+    Vector2 spawnPos = { (float)TileMap::kTileSize * 2.5f, (float)TileMap::kTileSize * 2.5f };
+    for (const auto& spawn : levelOpt.value().spawns)
+    {
+        if (spawn.type == "PlayerSpawn" || spawn.subType == "PlayerSpawn")
+        {
+            spawnPos = spawn.position;
+            break;
+        }
+    }
+    m_player.SetPosition(spawnPos);
+    m_camera.target = spawnPos;
+
+    /* 2. Réinitialisation de l'inventaire et des statistiques d'amélioration */
+    m_player.GetInventory().RemoveItem("sword");
+    m_player.GetInventory().RemoveItem("boomerang");
+    m_player.GetInventory().m_upgradePoints = 5;
+
+    /* 3. Génération des objets au sol par rapport au spawn joueur (assure la rétrocompatibilité) */
+    m_pickups.clear();
+    
+    GroundPickup swordPickup;
+    swordPickup.itemId = "sword";
+    swordPickup.name = "EPEE DE DEBUTANT";
+    swordPickup.position = { spawnPos.x - 80.0f, spawnPos.y };
+    swordPickup.active = true;
+
+    GroundPickup boomerangPickup;
+    boomerangPickup.itemId = "boomerang";
+    boomerangPickup.name = "BOOMERANG DE VOYAGE";
+    boomerangPickup.position = { spawnPos.x + 80.0f, spawnPos.y };
+    boomerangPickup.active = true;
+
+    m_pickups.push_back(swordPickup);
+    m_pickups.push_back(boomerangPickup);
+
+    /* 4. Génération des objets destructibles par rapport au spawn joueur */
+    m_destructibles.clear();
+
+    Destructible crate1(DestructibleType::Crate, { spawnPos.x - 40.0f, spawnPos.y + 40.0f });
+    Destructible plant1(DestructibleType::Plant, { spawnPos.x + 40.0f, spawnPos.y + 40.0f });
+    
+    /* Monument mystique Custom : vulnérable aux attaques contondantes (Blunt) OU au Feu (Fire) ! */
+    Destructible customObj(DestructibleType::Custom, { spawnPos.x, spawnPos.y - 60.0f });
+    customObj.AddVulnerableDamageType(DamageType::Blunt);
+    customObj.AddVulnerableElement(ElementType::Fire);
+    customObj.SetMaxHealth(50.0f);
+
+    m_destructibles.push_back(crate1);
+    m_destructibles.push_back(plant1);
+    m_destructibles.push_back(customObj);
+
+    /* 5. Désactivation de tout boomerang actif */
+    m_boomerang = BoomerangProjectile();
+
+    m_notificationTimer = 0.0f;
+    m_notificationText = "";
+
+    return true;
 }
 
 void GameWorld::Update(float deltaTime)
@@ -92,6 +165,107 @@ void GameWorld::Update(float deltaTime)
         }
     }
 
+    /* 5. Lancement et mise à jour du Boomerang */
+    if (m_player.GetInventory().HasItem("boomerang"))
+    {
+        const Item* boomStats = m_player.GetInventory().GetItem("boomerang");
+        
+        bool isBoomerangPressed = IsKeyPressed(KEY_B);
+        if (IsGamepadAvailable(0))
+        {
+            if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT) || 
+                IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_UP))
+            {
+                isBoomerangPressed = true;
+            }
+        }
+
+        if (isBoomerangPressed && !m_boomerang.active && m_player.GetState() != PlayerState::Attacking)
+        {
+            m_boomerang.active = true;
+            m_boomerang.returning = false;
+            m_boomerang.position = m_player.GetPosition();
+            m_boomerang.originPos = m_player.GetPosition();
+
+            m_boomerang.speed = (boomStats != nullptr) ? boomStats->speed : 350.0f;
+            m_boomerang.maxRange = (boomStats != nullptr) ? boomStats->range : 150.0f;
+
+            m_boomerang.velocity = { 0.0f, 0.0f };
+            if (m_player.GetDirection() == Direction::Up)
+            {
+                m_boomerang.velocity.y = -m_boomerang.speed;
+            }
+            else if (m_player.GetDirection() == Direction::Down)
+            {
+                m_boomerang.velocity.y = m_boomerang.speed;
+            }
+            else if (m_player.GetDirection() == Direction::Left)
+            {
+                m_boomerang.velocity.x = -m_boomerang.speed;
+            }
+            else if (m_player.GetDirection() == Direction::Right)
+            {
+                m_boomerang.velocity.x = m_boomerang.speed;
+            }
+        }
+    }
+
+    if (m_boomerang.active)
+    {
+        m_boomerang.rotation += 720.0f * deltaTime;
+
+        if (!m_boomerang.returning)
+        {
+            m_boomerang.position.x += m_boomerang.velocity.x * deltaTime;
+            m_boomerang.position.y += m_boomerang.velocity.y * deltaTime;
+
+            const float dx = m_boomerang.position.x - m_boomerang.originPos.x;
+            const float dy = m_boomerang.position.y - m_boomerang.originPos.y;
+            const float distance = std::sqrt((dx * dx) + (dy * dy));
+
+            const Rectangle boomRect = { m_boomerang.position.x - 8.0f, m_boomerang.position.y - 8.0f, 16.0f, 16.0f };
+            
+            /* Collision du boomerang contre les objets destructibles */
+            const Item* boomStats = m_player.GetInventory().GetItem("boomerang");
+            if (boomStats != nullptr)
+            {
+                for (auto& dest : m_destructibles)
+                {
+                    if (dest.IsAlive() && CheckCollisionRecs(boomRect, dest.GetCollisionRect()))
+                    {
+                        if (dest.TakeDamage(boomStats->damage, boomStats->damageType, boomStats->element))
+                        {
+                            m_boomerang.returning = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            /* Collision du boomerang contre les murs */
+            if (distance >= m_boomerang.maxRange || m_tileMap.CheckCollision(boomRect))
+            {
+                m_boomerang.returning = true;
+            }
+        }
+        else
+        {
+            const Vector2 playerPos = m_player.GetPosition();
+            const Vector2 dirToPlayer = { playerPos.x - m_boomerang.position.x, playerPos.y - m_boomerang.position.y };
+            const float length = std::sqrt((dirToPlayer.x * dirToPlayer.x) + (dirToPlayer.y * dirToPlayer.y));
+
+            if (length <= 20.0f)
+            {
+                m_boomerang.active = false;
+            }
+            else
+            {
+                m_boomerang.position.x += (dirToPlayer.x / length) * m_boomerang.speed * deltaTime;
+                m_boomerang.position.y += (dirToPlayer.y / length) * m_boomerang.speed * deltaTime;
+            }
+        }
+    }
+
     /* Détection de collecte d'objets */
     for (auto& pickup : m_pickups)
     {
@@ -155,6 +329,31 @@ void GameWorld::Draw() const
 
     m_player.Draw();
 
+    /* Rendu visuel du boomerang actif */
+    if (m_boomerang.active)
+    {
+        Color boomColor = SKYBLUE;
+        const Item* boomStats = m_player.GetInventory().GetItem("boomerang");
+        if (boomStats != nullptr)
+        {
+            if (boomStats->element == ElementType::Fire)
+            {
+                boomColor = ORANGE;
+            }
+            else if (boomStats->element == ElementType::Ice)
+            {
+                boomColor = SKYBLUE;
+            }
+            else if (boomStats->element == ElementType::Lightning)
+            {
+                boomColor = GOLD;
+            }
+        }
+
+        DrawCircleSector(m_boomerang.position, 12.0f, m_boomerang.rotation, m_boomerang.rotation + 180.0f, 4, boomColor);
+        DrawCircleLinesV(m_boomerang.position, 12.0f, WHITE);
+    }
+
     EndMode2D();
 
     /* Dessiner la notification d'objet collecté en espace écran */
@@ -171,47 +370,5 @@ void GameWorld::Draw() const
 
 void GameWorld::Reset()
 {
-    m_player.SetPosition({ (float)TileMap::kTileSize * 2.5f, (float)TileMap::kTileSize * 2.5f });
-    
-    /* Vider l'inventaire lors d'un reset */
-    m_player.GetInventory().RemoveItem("sword");
-    m_player.GetInventory().RemoveItem("boomerang");
-    m_player.GetInventory().m_upgradePoints = 5;
-
-    /* Repopuler les objets au sol */
-    m_pickups.clear();
-    
-    GroundPickup swordPickup;
-    swordPickup.itemId = "sword";
-    swordPickup.name = "EPEE DE LEGENDE";
-    swordPickup.position = { (float)TileMap::kTileSize * 4.5f, (float)TileMap::kTileSize * 2.5f };
-    swordPickup.active = true;
-
-    GroundPickup boomerangPickup;
-    boomerangPickup.itemId = "boomerang";
-    boomerangPickup.name = "BOOMERANG VENT";
-    boomerangPickup.position = { (float)TileMap::kTileSize * 10.5f, (float)TileMap::kTileSize * 2.5f };
-    boomerangPickup.active = true;
-
-    m_pickups.push_back(swordPickup);
-    m_pickups.push_back(boomerangPickup);
-
-    /* Repopuler les objets destructibles */
-    m_destructibles.clear();
-
-    Destructible crate1(DestructibleType::Crate, { (float)TileMap::kTileSize * 6.5f, (float)TileMap::kTileSize * 4.5f });
-    Destructible plant1(DestructibleType::Plant, { (float)TileMap::kTileSize * 8.5f, (float)TileMap::kTileSize * 4.5f });
-    
-    /* Monument mystique Custom : vulnérable aux attaques contondantes (Blunt) OU au Feu (Fire) ! */
-    Destructible customObj(DestructibleType::Custom, { (float)TileMap::kTileSize * 7.5f, (float)TileMap::kTileSize * 5.5f });
-    customObj.AddVulnerableDamageType(DamageType::Blunt);
-    customObj.AddVulnerableElement(ElementType::Fire);
-    customObj.SetMaxHealth(50.0f);
-
-    m_destructibles.push_back(crate1);
-    m_destructibles.push_back(plant1);
-    m_destructibles.push_back(customObj);
-
-    m_camera.target = m_player.GetPosition();
-    m_notificationTimer = 0.0f;
+    LoadMap("assets/maps/game/overworld.json");
 }

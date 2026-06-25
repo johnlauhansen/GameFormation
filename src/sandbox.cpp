@@ -1,34 +1,12 @@
 #include <raylib.h>
 #include "core/player.h"
-#include "core/destructible.h"
-#include "map/tile_map.h"
-#include "map/map_loader.h"
+#include "core/game_world.h"
 #include <cmath>
 #include <filesystem>
 #include <vector>
 #include <string>
 
 namespace fs = std::filesystem;
-
-struct SandboxBoomerang
-{
-    Vector2 position;
-    Vector2 velocity;
-    bool active;
-    bool returning;
-    float speed;
-    float rotation;
-    float maxRange;
-    Vector2 originPos;
-};
-
-struct SandboxGroundPickup
-{
-    std::string itemId;
-    std::string name;
-    Vector2 position;
-    bool active = true;
-};
 
 /* Racine active résolue pour charger les cartes (par défaut relative au dossier de travail) */
 std::string g_mapsPathRoot = "assets/maps/sandbox/";
@@ -282,26 +260,7 @@ int main(void)
     const int screenHeight = 600;
     InitWindow(screenWidth, screenHeight, "gameFormation - Sandbox Gameplay : Boomerang Prototype");
 
-    TileMap tileMap;
-    Player player({ 0.0f, 0.0f });
-
-    /* Configuration de la Caméra 2D pour le Sandbox */
-    Camera2D camera = { 0 };
-    camera.target = player.GetPosition();
-    camera.offset = { (float)screenWidth / 2.0f, (float)screenHeight / 2.0f };
-    camera.rotation = 0.0f;
-    camera.zoom = 1.2f;
-
-    SandboxBoomerang boomerang = {
-        { 0.0f, 0.0f },
-        { 0.0f, 0.0f },
-        false,
-        false,
-        350.0f,
-        0.0f,
-        150.0f,
-        { 0.0f, 0.0f }
-    };
+    GameWorld sandboxWorld;
 
     /* Variables de contrôle de l'écran de sélection de carte */
     bool isMapLoaded = false;
@@ -309,14 +268,7 @@ int main(void)
     int selectedMapIdx = 0;
     std::string currentLoadedMapName = "";
 
-    /* Objets au sol dans le Sandbox */
-    std::vector<SandboxGroundPickup> sandboxPickups;
-    std::vector<Destructible> sandboxDestructibles;
     bool isInventoryOpen = false;
-
-    /* Notification */
-    std::string notificationText = "";
-    float notificationTimer = 0.0f;
 
     SetTargetFPS(60);
 
@@ -360,53 +312,11 @@ int main(void)
                     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
                     {
                         const std::string selectedFile = g_mapsPathRoot + availableMaps[i];
-                        auto loadedLevel = MapLoader::LoadFromJson(selectedFile);
-                        if (loadedLevel.has_value())
+                        if (sandboxWorld.LoadMap(selectedFile))
                         {
-                            tileMap.LoadLevel(loadedLevel.value());
                             currentLoadedMapName = availableMaps[i];
-                            
-                            Vector2 spawnPos = { (float)TileMap::kTileSize * 5.0f, (float)TileMap::kTileSize * 5.0f };
-                            for (const auto& s : loadedLevel.value().spawns)
-                            {
-                                if (s.type == "PlayerSpawn" || s.subType == "PlayerSpawn")
-                                {
-                                    spawnPos = s.position;
-                                    break;
-                                }
-                            }
-                            player.SetPosition(spawnPos);
-                            camera.target = spawnPos; /* Aligne instantanément la caméra ! */
-
-                            /* Remettre l'inventaire à zéro et positionner deux pickups au sol */
-                            player.GetInventory().RemoveItem("sword");
-                            player.GetInventory().RemoveItem("boomerang");
-                            player.GetInventory().m_upgradePoints = 5;
-
-                            sandboxPickups.clear();
-                            SandboxGroundPickup s1 = { "sword", "EPEE EN BOIS", { spawnPos.x - 80.0f, spawnPos.y }, true };
-                            SandboxGroundPickup s2 = { "boomerang", "BOOMERANG DE TEST", { spawnPos.x + 80.0f, spawnPos.y }, true };
-                            sandboxPickups.push_back(s1);
-                            sandboxPickups.push_back(s2);
-
-                            /* Repopuler les objets destructibles */
-                            sandboxDestructibles.clear();
-                            Destructible crate1(DestructibleType::Crate, { spawnPos.x - 40.0f, spawnPos.y + 40.0f });
-                            Destructible plant1(DestructibleType::Plant, { spawnPos.x + 40.0f, spawnPos.y + 40.0f });
-                            
-                            /* Monument magique Custom : vulnérable à Blunt OU au Feu (Fire) */
-                            Destructible customObj(DestructibleType::Custom, { spawnPos.x, spawnPos.y - 60.0f });
-                            customObj.AddVulnerableDamageType(DamageType::Blunt);
-                            customObj.AddVulnerableElement(ElementType::Fire);
-                            customObj.SetMaxHealth(50.0f);
-                            
-                            sandboxDestructibles.push_back(crate1);
-                            sandboxDestructibles.push_back(plant1);
-                            sandboxDestructibles.push_back(customObj);
-
                             isMapLoaded = true;
                             isInventoryOpen = false;
-                            notificationTimer = 0.0f;
                         }
                     }
                 }
@@ -415,52 +325,11 @@ int main(void)
             if ((IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) && !availableMaps.empty())
             {
                 const std::string selectedFile = g_mapsPathRoot + availableMaps[selectedMapIdx];
-                auto loadedLevel = MapLoader::LoadFromJson(selectedFile);
-                if (loadedLevel.has_value())
+                if (sandboxWorld.LoadMap(selectedFile))
                 {
-                    tileMap.LoadLevel(loadedLevel.value());
                     currentLoadedMapName = availableMaps[selectedMapIdx];
-
-                    Vector2 spawnPos = { (float)TileMap::kTileSize * 5.0f, (float)TileMap::kTileSize * 5.0f };
-                    for (const auto& s : loadedLevel.value().spawns)
-                    {
-                        if (s.type == "PlayerSpawn" || s.subType == "PlayerSpawn")
-                        {
-                            spawnPos = s.position;
-                            break;
-                        }
-                    }
-                    player.SetPosition(spawnPos);
-                    camera.target = spawnPos; /* Aligne instantanément la caméra ! */
-
-                    player.GetInventory().RemoveItem("sword");
-                    player.GetInventory().RemoveItem("boomerang");
-                    player.GetInventory().m_upgradePoints = 5;
-
-                    sandboxPickups.clear();
-                    SandboxGroundPickup s1 = { "sword", "EPEE EN BOIS", { spawnPos.x - 80.0f, spawnPos.y }, true };
-                    SandboxGroundPickup s2 = { "boomerang", "BOOMERANG DE TEST", { spawnPos.x + 80.0f, spawnPos.y }, true };
-                    sandboxPickups.push_back(s1);
-                    sandboxPickups.push_back(s2);
-
-                    /* Repopuler les objets destructibles */
-                    sandboxDestructibles.clear();
-                    Destructible crate1(DestructibleType::Crate, { spawnPos.x - 40.0f, spawnPos.y + 40.0f });
-                    Destructible plant1(DestructibleType::Plant, { spawnPos.x + 40.0f, spawnPos.y + 40.0f });
-                    
-                    /* Monument magique Custom : vulnérable à Blunt OU au Feu (Fire) */
-                    Destructible customObj(DestructibleType::Custom, { spawnPos.x, spawnPos.y - 60.0f });
-                    customObj.AddVulnerableDamageType(DamageType::Blunt);
-                    customObj.AddVulnerableElement(ElementType::Fire);
-                    customObj.SetMaxHealth(50.0f);
-                    
-                    sandboxDestructibles.push_back(crate1);
-                    sandboxDestructibles.push_back(plant1);
-                    sandboxDestructibles.push_back(customObj);
-
                     isMapLoaded = true;
                     isInventoryOpen = false;
-                    notificationTimer = 0.0f;
                 }
             }
 
@@ -533,304 +402,40 @@ int main(void)
 
             if (isInventoryOpen)
             {
-                UpdateSandboxInventoryMenu(player);
+                UpdateSandboxInventoryMenu(sandboxWorld.GetPlayer());
             }
             else
             {
-                const Vector2 oldPos = player.GetPosition();
-
-                /* Update Joueur */
-                player.Update(deltaTime);
-
-                /* Collisions Joueur / Murs */
-                const Vector2 currentPos = player.GetPosition();
-                const Rectangle collisionRect = player.GetCollisionRect();
-                if (tileMap.CheckCollision(collisionRect))
-                {
-                    const Vector2 resolvedPos = tileMap.ResolveCollision(currentPos, oldPos, collisionRect.width, collisionRect.height);
-                    player.SetPosition(resolvedPos);
-                }
-
-                /* Mettre à jour les objets destructibles */
-                for (auto& dest : sandboxDestructibles)
-                {
-                    dest.Update(deltaTime);
-                }
-
-                /* Collisions glissantes contre les objets destructibles physiques solides */
-                const Vector2 posAfterTileCheck = player.GetPosition();
-                Vector2 finalPos = posAfterTileCheck;
-
-                /* Essai sur l'axe X */
-                player.SetPosition({ posAfterTileCheck.x, oldPos.y });
-                bool collideX = false;
-                for (const auto& dest : sandboxDestructibles)
-                {
-                    if (dest.IsAlive() && CheckCollisionRecs(player.GetCollisionRect(), dest.GetCollisionRect()))
-                    {
-                        collideX = true;
-                        break;
-                    }
-                }
-                if (collideX)
-                {
-                    finalPos.x = oldPos.x;
-                }
-
-                /* Essai sur l'axe Y */
-                player.SetPosition({ finalPos.x, posAfterTileCheck.y });
-                bool collideY = false;
-                for (const auto& dest : sandboxDestructibles)
-                {
-                    if (dest.IsAlive() && CheckCollisionRecs(player.GetCollisionRect(), dest.GetCollisionRect()))
-                    {
-                        collideY = true;
-                        break;
-                    }
-                }
-                if (collideY)
-                {
-                    finalPos.y = oldPos.y;
-                }
-
-                player.SetPosition(finalPos);
-
-                /* Détection des attaques à l'épée sur les objets destructibles */
-                if (player.GetState() == PlayerState::Attacking)
-                {
-                    const Rectangle attackRect = player.GetAttackRect();
-                    const Item* sword = player.GetInventory().GetItem("sword");
-                    if (sword != nullptr && sword->collected)
-                    {
-                        for (auto& dest : sandboxDestructibles)
-                        {
-                            if (dest.IsAlive() && CheckCollisionRecs(attackRect, dest.GetCollisionRect()))
-                            {
-                                dest.TakeDamage(sword->damage, sword->damageType, sword->element);
-                            }
-                        }
-                    }
-                }
-
-                /* Collecte de Pickups sol */
-                for (auto& p : sandboxPickups)
-                {
-                    if (p.active)
-                    {
-                        Rectangle pickupRect = { p.position.x - 12.0f, p.position.y - 12.0f, 24.0f, 24.0f };
-                        if (CheckCollisionRecs(collisionRect, pickupRect))
-                        {
-                            p.active = false;
-                            player.GetInventory().AddItem(p.itemId);
-                            notificationText = "Sandbox : " + p.name + " collecte !";
-                            notificationTimer = 3.0f;
-                        }
-                    }
-                }
-
-                if (notificationTimer > 0.0f)
-                {
-                    notificationTimer -= deltaTime;
-                }
+                /* Tout l'update du joueur, de la caméra, des destructibles, pickups et du boomerang est centralisé ! */
+                sandboxWorld.Update(deltaTime);
 
                 /* Retour à l'écran de sélection de map avec ECHAP */
                 if (IsKeyPressed(KEY_ESCAPE))
                 {
-                    boomerang.active = false;
                     isMapLoaded = false;
                     availableMaps = GetSandboxMaps();
                 }
-
-                /* Boomerang - Uniquement si collecté et équipé ! */
-                if (player.GetInventory().HasItem("boomerang"))
-                {
-                    const Item* boomStats = player.GetInventory().GetItem("boomerang");
-                    
-                    bool isBoomerangPressed = IsKeyPressed(KEY_B);
-                    if (IsGamepadAvailable(0))
-                    {
-                        if (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT) || 
-                            IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_UP))
-                        {
-                            isBoomerangPressed = true;
-                        }
-                    }
-
-                    if (isBoomerangPressed && !boomerang.active && player.GetState() != PlayerState::Attacking)
-                    {
-                        boomerang.active = true;
-                        boomerang.returning = false;
-                        boomerang.position = player.GetPosition();
-                        boomerang.originPos = player.GetPosition();
-
-                        /* Charge de manière dynamique les stats améliorées ! */
-                        boomerang.speed = (boomStats != nullptr) ? boomStats->speed : 350.0f;
-                        boomerang.maxRange = (boomStats != nullptr) ? boomStats->range : 150.0f;
-
-                        boomerang.velocity = { 0.0f, 0.0f };
-                        if (player.GetDirection() == Direction::Up)
-                        {
-                            boomerang.velocity.y = -boomerang.speed;
-                        }
-                        else if (player.GetDirection() == Direction::Down)
-                        {
-                            boomerang.velocity.y = boomerang.speed;
-                        }
-                        else if (player.GetDirection() == Direction::Left)
-                        {
-                            boomerang.velocity.x = -boomerang.speed;
-                        }
-                        else if (player.GetDirection() == Direction::Right)
-                        {
-                            boomerang.velocity.x = boomerang.speed;
-                        }
-                    }
-                }
-
-                if (boomerang.active)
-                {
-                    boomerang.rotation += 720.0f * deltaTime;
-
-                    if (!boomerang.returning)
-                    {
-                        boomerang.position.x += boomerang.velocity.x * deltaTime;
-                        boomerang.position.y += boomerang.velocity.y * deltaTime;
-
-                        const float dx = boomerang.position.x - boomerang.originPos.x;
-                        const float dy = boomerang.position.y - boomerang.originPos.y;
-                        const float distance = std::sqrt((dx * dx) + (dy * dy));
-
-                        const Rectangle boomRect = { boomerang.position.x - 8.0f, boomerang.position.y - 8.0f, 16.0f, 16.0f };
-                        
-                        /* Collision du boomerang contre les objets destructibles */
-                        const Item* boomStats = player.GetInventory().GetItem("boomerang");
-                        if (boomStats != nullptr)
-                        {
-                            for (auto& dest : sandboxDestructibles)
-                            {
-                                if (dest.IsAlive() && CheckCollisionRecs(boomRect, dest.GetCollisionRect()))
-                                {
-                                    if (dest.TakeDamage(boomStats->damage, boomStats->damageType, boomStats->element))
-                                    {
-                                        boomerang.returning = true;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-
-                        if (distance >= boomerang.maxRange || tileMap.CheckCollision(boomRect))
-                        {
-                            boomerang.returning = true;
-                        }
-                    }
-                    else
-                    {
-                        const Vector2 playerPos = player.GetPosition();
-                        const Vector2 dirToPlayer = { playerPos.x - boomerang.position.x, playerPos.y - boomerang.position.y };
-                        const float length = std::sqrt((dirToPlayer.x * dirToPlayer.x) + (dirToPlayer.y * dirToPlayer.y));
-
-                        if (length <= 20.0f)
-                        {
-                            boomerang.active = false;
-                        }
-                        else
-                        {
-                            boomerang.position.x += (dirToPlayer.x / length) * boomerang.speed * deltaTime;
-                            boomerang.position.y += (dirToPlayer.y / length) * boomerang.speed * deltaTime;
-                        }
-                    }
-                }
-
-                /* Mise à jour fluide de la Caméra 2D (Lerp) */
-                const Vector2 playerPos = player.GetPosition();
-                camera.target.x += (playerPos.x - camera.target.x) * 0.1f;
-                camera.target.y += (playerPos.y - camera.target.y) * 0.1f;
             }
 
             /* Rendu */
             BeginDrawing();
             ClearBackground(DARKBLUE);
 
-            /* Tout ce qui est dans l'espace monde se dessine par rapport à la caméra */
-            BeginMode2D(camera);
-                tileMap.Draw();
-
-                /* Dessiner les objets destructibles */
-                for (const auto& dest : sandboxDestructibles)
-                {
-                    dest.Draw();
-                }
-
-                /* Dessiner les pickups au sol */
-                for (const auto& p : sandboxPickups)
-                {
-                    if (p.active)
-                    {
-                        if (p.itemId == "sword")
-                        {
-                            DrawLineEx({ p.position.x - 8, p.position.y + 8 }, { p.position.x + 8, p.position.y - 8 }, 3.5f, LIGHTGRAY);
-                            DrawLineEx({ p.position.x - 10, p.position.y + 10 }, { p.position.x - 6, p.position.y + 6 }, 4.0f, BROWN);
-                            DrawCircleV({ p.position.x + 8, p.position.y - 8 }, 2.5f, WHITE);
-                        }
-                        else if (p.itemId == "boomerang")
-                        {
-                            DrawCircleSector(p.position, 10.0f, 45.0f, 225.0f, 4, SKYBLUE);
-                            DrawCircleLinesV(p.position, 10.0f, WHITE);
-                        }
-                    }
-                }
-
-                player.Draw();
-
-                /* Rendu visuel du boomerang dynamique de test */
-                if (boomerang.active)
-                {
-                    Color boomColor = SKYBLUE;
-                    const Item* boomStats = player.GetInventory().GetItem("boomerang");
-                    if (boomStats != nullptr)
-                    {
-                        if (boomStats->element == ElementType::Fire)
-                        {
-                            boomColor = ORANGE;
-                        }
-                        else if (boomStats->element == ElementType::Ice)
-                        {
-                            boomColor = SKYBLUE;
-                        }
-                        else if (boomStats->element == ElementType::Lightning)
-                        {
-                            boomColor = GOLD;
-                        }
-                    }
-
-                    DrawCircleSector(boomerang.position, 12.0f, boomerang.rotation, boomerang.rotation + 180.0f, 4, boomColor);
-                    DrawCircleLinesV(boomerang.position, 12.0f, WHITE);
-                }
-            EndMode2D();
-
-            /* L'UI et les bannières se dessinent hors caméra (en coordonnées écran statiques) */
-            /* Notification bannière */
-            if (notificationTimer > 0.0f && !isInventoryOpen)
-            {
-                const int textWidth = MeasureText(notificationText.c_str(), 16);
-                DrawRectangle(400 - (textWidth + 30) / 2, 40, textWidth + 30, 32, Fade(BLACK, 0.85f));
-                DrawRectangleLines(400 - (textWidth + 30) / 2, 40, textWidth + 30, 32, SKYBLUE);
-                DrawText(notificationText.c_str(), 400 - textWidth / 2, 49, 16, SKYBLUE);
-            }
+            /* Le rendu de la carte, des objets, des destructibles, du joueur et du boomerang est centralisé ! */
+            sandboxWorld.Draw();
 
             /* Si l'inventaire de la forge est ouvert, on le dessine par-dessus */
             if (isInventoryOpen)
             {
                 DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.82f));
-                DrawSandboxInventoryMenu(player);
+                DrawSandboxInventoryMenu(sandboxWorld.GetPlayer());
             }
             else
             {
                 /* HUD du Sandbox */
                 DrawRectangle(10, 10, 350, 150, Fade(BLACK, 0.8f));
                 DrawRectangleLines(10, 10, 350, 150, SKYBLUE);
-                DrawText("SANDBOX - TEST DU BOOMERANG DYNAMIQUE", 20, 20, 12, SKYBLUE);
+                DrawText("SANDBOX - TEST DU BOOMERANG DYNAMIQUE (UNIFIE)", 20, 20, 12, SKYBLUE);
                 DrawText(TextFormat("Carte active : %s", currentLoadedMapName.c_str()), 20, 40, 11, GREEN);
                 DrawText("ZQSD / Fleches : Se deplacer", 20, 55, 11, LIGHTGRAY);
                 DrawText("Marchez sur l'EPEE et le BOOMERANG pour les ramasser !", 20, 72, 11, GOLD);
