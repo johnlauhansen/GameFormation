@@ -1,0 +1,14 @@
+{
+  "cmake.configureOnOpen": true,
+  "cmake.buildDirectory": "${workspaceFolder}/build",
+  "files.associations": {
+    "*.h": "cpp",
+    "*.hpp": "cpp"
+  },
+  "cmake.configureSettings": {
+    "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
+  },
+  "cmake.launchSettings": {
+    "cwd": "${workspaceFolder}"
+  }
+}
