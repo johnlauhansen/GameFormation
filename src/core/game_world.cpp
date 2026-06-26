@@ -101,6 +101,8 @@ bool GameWorld::LoadMap(const std::string& filePath)
         return pos;
     };
 
+    Database::Initialize();
+
     /* 4. Génération des objets destructibles, PNJs, et Ennemis depuis les métadonnées (Data-Driven) */
     for (const auto& spawn : levelOpt.value().spawns)
     {
@@ -147,13 +149,26 @@ bool GameWorld::LoadMap(const std::string& filePath)
                 npc.SetStatic();
             }
 
-            /* Configuration des dialogues personnalisés depuis JSON */
+            /* Chargement des dialogues via la Base de Données Globale */
+            std::string templateId = spawn.GetProperty("template_id", "");
             std::vector<std::string> dialogues;
+            
+            if (!templateId.empty())
+            {
+                dialogues = Database::GetDialogues(templateId);
+            }
+            
+            /* Surcharge possible par des propriétés locales spécifiques Tiled */
             for (int i = 1; i <= 5; ++i)
             {
                 std::string line = spawn.GetProperty("dialogue" + std::to_string(i), "");
-                if (!line.empty()) dialogues.push_back(line);
+                if (!line.empty())
+                {
+                    if (dialogues.size() < (size_t)i) dialogues.resize(i);
+                    dialogues[i - 1] = line;
+                }
             }
+            
             if (!dialogues.empty())
             {
                 npc.SetDefaultDialogues(dialogues);
@@ -189,12 +204,10 @@ bool GameWorld::LoadMap(const std::string& filePath)
             std::string enemyTypeStr = spawn.GetProperty("enemy_type", "Slime");
             std::string enemyName = spawn.GetProperty("name", enemyTypeStr);
             
-            EnemyType enemyType = EnemyType::Slime;
-            if (enemyTypeStr == "Octorok") enemyType = EnemyType::Octorok;
-            else if (enemyTypeStr == "Moblin") enemyType = EnemyType::Moblin;
+            EnemyTemplate tmpl = Database::GetEnemyTemplate(enemyTypeStr);
 
-            Vector2 safePos = findSafeSpawn(spawn.position, 32.0f, 32.0f);
-            Enemy enemy(enemyName, enemyType, safePos);
+            Vector2 safePos = findSafeSpawn(spawn.position, tmpl.width, tmpl.height);
+            Enemy enemy(enemyName, tmpl, safePos);
 
             /* Configuration du mouvement depuis JSON */
             std::string movementStr = spawn.GetProperty("movement", "PatrolZone");

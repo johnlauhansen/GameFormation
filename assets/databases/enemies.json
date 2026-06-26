@@ -1,0 +1,30 @@
+{
+  "Slime": {
+    "health": 20.0,
+    "damage": 5.0,
+    "speed": 60.0,
+    "chase_radius": 120.0,
+    "width": 32.0,
+    "height": 32.0,
+    "behavior": "Slime"
+  },
+  "Octorok": {
+    "health": 15.0,
+    "damage": 5.0,
+    "speed": 40.0,
+    "chase_radius": 0.0,
+    "width": 32.0,
+    "height": 32.0,
+    "shoot_interval": 2.5,
+    "behavior": "Octorok"
+  },
+  "Moblin": {
+    "health": 40.0,
+    "damage": 15.0,
+    "speed": 75.0,
+    "chase_radius": 180.0,
+    "width": 36.0,
+    "height": 36.0,
+    "behavior": "Moblin"
+  }
+}

@@ -1,60 +1,54 @@
 #include "enemy.h"
 #include "enemy_behavior.h"
+#include "database.h"
 #include "map/tile_map.h"
 #include <cmath>
 #include <raymath.h>
 
-Enemy::Enemy(const std::string& name, EnemyType type, Vector2 startPos)
+Enemy::Enemy(const std::string& name, const EnemyTemplate& tmpl, Vector2 startPos)
     : m_name(name)
-    , m_type(type)
+    , m_type(EnemyType::Slime) /* Default, overridden below */
     , m_state(EnemyState::Patrolling)
     , m_position(startPos)
     , m_startPosition(startPos)
-    , m_width(32.0f)
-    , m_height(32.0f)
+    , m_width(tmpl.width)
+    , m_height(tmpl.height)
+    , m_health(tmpl.health)
+    , m_maxHealth(tmpl.health)
+    , m_damage(tmpl.damage)
     , m_damageFlashTimer(0.0f)
     , m_hitCooldownTimer(0.0f)
     , m_movementType(MovementType::Static)
-    , m_speed(50.0f)
+    , m_speed(tmpl.speed)
     , m_patrolRadius(0.0f)
     , m_patrolTarget(startPos)
     , m_patrolWaitTimer(0.0f)
     , m_currentWaypointIndex(0)
     , m_pathForward(true)
-    , m_chaseRadius(150.0f)
+    , m_chaseRadius(tmpl.chaseRadius)
     , m_shootCooldownTimer(0.0f)
-    , m_shootInterval(2.0f)
+    , m_shootInterval(tmpl.shootInterval)
 {
-    /* Configuration initiale selon le type d'ennemi et instanciation du comportement */
-    switch (m_type)
+    /* Instanciation dynamique du comportement en fonction du template JSON */
+    if (tmpl.behavior == "Slime")
     {
-        case EnemyType::Slime:
-            m_health = 20.0f;
-            m_maxHealth = 20.0f;
-            m_damage = 5.0f; /* Un quart de coeur */
-            m_speed = 60.0f;
-            m_chaseRadius = 120.0f;
-            m_behavior = std::make_unique<SlimeBehavior>();
-            break;
-        case EnemyType::Octorok:
-            m_health = 15.0f;
-            m_maxHealth = 15.0f;
-            m_damage = 5.0f;
-            m_speed = 40.0f;
-            m_chaseRadius = 0.0f; /* N'essaie pas de courir après le joueur, préfère tirer */
-            m_shootInterval = 2.5f;
-            m_behavior = std::make_unique<OctorokBehavior>();
-            break;
-        case EnemyType::Moblin:
-            m_health = 40.0f;
-            m_maxHealth = 40.0f;
-            m_damage = 15.0f; /* Presque un coeur */
-            m_speed = 75.0f;
-            m_chaseRadius = 180.0f;
-            m_width = 36.0f;
-            m_height = 36.0f;
-            m_behavior = std::make_unique<MoblinBehavior>();
-            break;
+        m_type = EnemyType::Slime;
+        m_behavior = std::make_unique<SlimeBehavior>();
+    }
+    else if (tmpl.behavior == "Octorok")
+    {
+        m_type = EnemyType::Octorok;
+        m_behavior = std::make_unique<OctorokBehavior>();
+    }
+    else if (tmpl.behavior == "Moblin")
+    {
+        m_type = EnemyType::Moblin;
+        m_behavior = std::make_unique<MoblinBehavior>();
+    }
+    else
+    {
+        m_type = EnemyType::Slime;
+        m_behavior = std::make_unique<SlimeBehavior>(); // Fallback
     }
 }
 

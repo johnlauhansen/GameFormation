@@ -1,0 +1,17 @@
+{
+  "Villager_Default": [
+    "Bonjour voyageur !",
+    "Bienvenue dans notre humble village.",
+    "Le temps est magnifique aujourd'hui, n'est-ce pas ?"
+  ],
+  "QuestGiver_Crates": [
+    "Halte-la ! J'ai besoin de votre aide !",
+    "Des caisses sauvages encombrent mon jardin a l'est...",
+    "Si vous detruisez 5 caisses en bois, je vous recompenserai !"
+  ],
+  "Merchant_Default": [
+    "Bienvenue dans ma boutique !",
+    "J'ai des marchandises de premier choix pour vous.",
+    "Jetez un oeil a mon inventaire !"
+  ]
+}

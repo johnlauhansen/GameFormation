@@ -33,7 +33,7 @@ class EnemyBehavior;
 class Enemy
 {
 public:
-    Enemy(const std::string& name, EnemyType type, Vector2 startPos);
+    Enemy(const std::string& name, const struct EnemyTemplate& tmpl, Vector2 startPos);
     ~Enemy();
 
     /* Constructeur de copie supprimé, déplacement autorisé (car unique_ptr) */
