@@ -60,7 +60,7 @@ bool GameWorld::LoadMap(const std::string& filePath)
     m_pickups.push_back(swordPickup);
     m_pickups.push_back(boomerangPickup);
 
-    /* 4. Génération des objets destructibles par rapport au spawn joueur */
+    /* 4. Génération des objets destructibles (mélange de spawner dynamique et d'objets Tiled) */
     m_destructibles.clear();
 
     Destructible crate1(DestructibleType::Crate, { spawnPos.x - 40.0f, spawnPos.y + 40.0f });
@@ -75,6 +75,27 @@ bool GameWorld::LoadMap(const std::string& filePath)
     m_destructibles.push_back(crate1);
     m_destructibles.push_back(plant1);
     m_destructibles.push_back(customObj);
+
+    // Chargement dynamique depuis le fichier de carte Tiled JSON (Data-Driven)
+    for (const auto& spawn : levelOpt.value().spawns)
+    {
+        if (spawn.type == "Crate" || spawn.subType == "Crate")
+        {
+            m_destructibles.push_back(Destructible(DestructibleType::Crate, spawn.position));
+        }
+        else if (spawn.type == "Plant" || spawn.subType == "Plant")
+        {
+            m_destructibles.push_back(Destructible(DestructibleType::Plant, spawn.position));
+        }
+        else if (spawn.type == "Custom" || spawn.subType == "Custom")
+        {
+            Destructible custom(DestructibleType::Custom, spawn.position);
+            custom.AddVulnerableDamageType(DamageType::Blunt);
+            custom.AddVulnerableElement(ElementType::Fire);
+            custom.SetMaxHealth(50.0f);
+            m_destructibles.push_back(custom);
+        }
+    }
 
     /* 5. Désactivation de tout boomerang actif */
     m_boomerang = BoomerangProjectile();
