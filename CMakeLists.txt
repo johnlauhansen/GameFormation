@@ -86,6 +86,17 @@ set(CORE_SOURCES
     src/core/physics_system.cpp
     src/core/camera_controller.h
     src/core/camera_controller.cpp
+    src/core/scene.h
+    src/core/scene_manager.h
+    src/core/scene_manager.cpp
+    src/core/title_scene.h
+    src/core/title_scene.cpp
+    src/core/gameplay_scene.h
+    src/core/gameplay_scene.cpp
+    src/core/options_scene.h
+    src/core/options_scene.cpp
+    src/core/inventory_scene.h
+    src/core/inventory_scene.cpp
     src/core/game_world.h
     src/core/game_world.cpp
     src/core/game.h
