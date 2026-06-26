@@ -29,28 +29,29 @@ namespace CombatSystem
             return;
         }
 
-        /* 1. Attaques sur les objets destructibles */
-        for (auto& dest : entityManager.GetDestructibles())
+        /* 1. Attaques sur les objets destructibles via Spatial Grid (Broadphase O(1)) */
+        auto nearbyDestructibles = entityManager.GetSpatialGrid().GetNearby(attackRect);
+        for (auto dest : nearbyDestructibles)
         {
-            if (dest.IsAlive() && CheckCollisionRecs(attackRect, dest.GetCollisionRect()))
+            if (dest->IsAlive() && CheckCollisionRecs(attackRect, dest->GetCollisionRect()))
             {
-                bool wasAlive = dest.IsAlive();
-                if (dest.TakeDamage(sword->damage, sword->damageType, sword->element))
+                bool wasAlive = dest->IsAlive();
+                if (dest->TakeDamage(sword->damage, sword->damageType, sword->element))
                 {
-                    if (wasAlive && !dest.IsAlive())
+                    if (wasAlive && !dest->IsAlive())
                     {
                         /* Spawner un rubis vert */
                         GroundPickup rupee;
                         rupee.itemId = "rupee";
                         rupee.name = "RUBIS VERT";
-                        rupee.position = dest.GetPosition();
+                        rupee.position = dest->GetPosition();
                         rupee.active = true;
                         entityManager.AddPickup(std::move(rupee));
 
                         /* Diffusion d'un événement global pour le système de quêtes */
-                        if (dest.GetType() == DestructibleType::Crate)
+                        if (dest->GetType() == DestructibleType::Crate)
                         {
-                            EventSystem::PublishCrateDestroyed({ dest.GetPosition() });
+                            EventSystem::PublishCrateDestroyed({ dest->GetPosition() });
                         }
                     }
                 }
@@ -107,26 +108,27 @@ namespace CombatSystem
 
             if (boomStats != nullptr)
             {
-                /* 1. Collision du boomerang contre les objets destructibles */
-                for (auto& dest : entityManager.GetDestructibles())
+                /* 1. Collision du boomerang contre les objets destructibles (Broadphase O(1)) */
+                auto nearbyDestructibles = entityManager.GetSpatialGrid().GetNearby(boomRect);
+                for (auto dest : nearbyDestructibles)
                 {
-                    if (dest.IsAlive() && CheckCollisionRecs(boomRect, dest.GetCollisionRect()))
+                    if (dest->IsAlive() && CheckCollisionRecs(boomRect, dest->GetCollisionRect()))
                     {
-                        bool wasAlive = dest.IsAlive();
-                        if (dest.TakeDamage(boomStats->damage, boomStats->damageType, boomStats->element))
+                        bool wasAlive = dest->IsAlive();
+                        if (dest->TakeDamage(boomStats->damage, boomStats->damageType, boomStats->element))
                         {
-                            if (wasAlive && !dest.IsAlive())
+                            if (wasAlive && !dest->IsAlive())
                             {
                                 GroundPickup rupee;
                                 rupee.itemId = "rupee";
                                 rupee.name = "RUBIS VERT";
-                                rupee.position = dest.GetPosition();
+                                rupee.position = dest->GetPosition();
                                 rupee.active = true;
                                 entityManager.AddPickup(std::move(rupee));
 
-                                if (dest.GetType() == DestructibleType::Crate)
+                                if (dest->GetType() == DestructibleType::Crate)
                                 {
-                                    EventSystem::PublishCrateDestroyed({ dest.GetPosition() });
+                                    EventSystem::PublishCrateDestroyed({ dest->GetPosition() });
                                 }
                             }
                             boomerang.returning = true;

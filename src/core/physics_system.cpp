@@ -28,10 +28,13 @@ Vector2 PhysicsSystem::ResolvePlayerMovement(
     testRectX.x = currentPos.x - colRect.width / 2.0f;
     testRectX.y = oldPos.y - colRect.height / 2.0f;
 
+    // Spatial Broadphase : On ne récupère que les destructibles proches du joueur
+    auto nearbyX = entityManager.GetSpatialGrid().GetNearby(testRectX);
+
     bool collideX = false;
-    for (const auto& dest : entityManager.GetDestructibles())
+    for (const auto dest : nearbyX)
     {
-        if (dest.IsAlive() && CheckCollisionRecs(testRectX, dest.GetCollisionRect()))
+        if (dest->IsAlive() && CheckCollisionRecs(testRectX, dest->GetCollisionRect()))
         {
             collideX = true;
             break;
@@ -47,10 +50,12 @@ Vector2 PhysicsSystem::ResolvePlayerMovement(
     testRectY.x = finalPos.x - colRect.width / 2.0f;
     testRectY.y = currentPos.y - colRect.height / 2.0f;
 
+    auto nearbyY = entityManager.GetSpatialGrid().GetNearby(testRectY);
+
     bool collideY = false;
-    for (const auto& dest : entityManager.GetDestructibles())
+    for (const auto dest : nearbyY)
     {
-        if (dest.IsAlive() && CheckCollisionRecs(testRectY, dest.GetCollisionRect()))
+        if (dest->IsAlive() && CheckCollisionRecs(testRectY, dest->GetCollisionRect()))
         {
             collideY = true;
             break;
