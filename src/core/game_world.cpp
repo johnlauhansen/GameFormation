@@ -389,14 +389,12 @@ void GameWorld::Update(float deltaTime)
 
     m_hud.Update(deltaTime);
 
-    const Vector2 targetPos = m_player.GetPosition();
-    m_camera.target.x += (targetPos.x - m_camera.target.x) * 0.1f;
-    m_camera.target.y += (targetPos.y - m_camera.target.y) * 0.1f;
+    m_cameraController.Update(deltaTime, m_player.GetPosition());
 }
 
 void GameWorld::Draw() const
 {
-    BeginMode2D(m_camera);
+    m_cameraController.BeginMode();
 
     m_tileMap.Draw();
 
@@ -429,7 +427,7 @@ void GameWorld::Draw() const
         DrawCircleLinesV(m_boomerang.position, 12.0f, WHITE);
     }
 
-    EndMode2D();
+    m_cameraController.EndMode();
 
     m_hud.Draw(m_player, m_tileMap, m_entityManager.GetDestructibles(), m_entityManager.GetPickups());
 

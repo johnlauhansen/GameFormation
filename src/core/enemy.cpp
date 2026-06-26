@@ -58,6 +58,11 @@ Enemy::Enemy(const std::string& name, EnemyType type, Vector2 startPos)
     }
 }
 
+Enemy::~Enemy() = default;
+
+Enemy::Enemy(Enemy&&) noexcept = default;
+Enemy& Enemy::operator=(Enemy&&) noexcept = default;
+
 void Enemy::Update(float deltaTime, const TileMap& tileMap, const Vector2 playerPos)
 {
     if (m_state == EnemyState::Dead)

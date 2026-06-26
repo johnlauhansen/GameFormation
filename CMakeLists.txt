@@ -74,6 +74,8 @@ set(CORE_SOURCES
     src/core/enemy.cpp
     src/core/enemy_behavior.h
     src/core/enemy_behavior.cpp
+    src/core/entity_manager.h
+    src/core/entity_manager.cpp
     src/core/dialogue_system.h
     src/core/dialogue_system.cpp
     src/core/combat_system.h

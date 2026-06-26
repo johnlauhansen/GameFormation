@@ -34,12 +34,13 @@ class Enemy
 {
 public:
     Enemy(const std::string& name, EnemyType type, Vector2 startPos);
+    ~Enemy();
 
     /* Constructeur de copie supprimé, déplacement autorisé (car unique_ptr) */
     Enemy(const Enemy&) = delete;
     Enemy& operator=(const Enemy&) = delete;
-    Enemy(Enemy&&) noexcept = default;
-    Enemy& operator=(Enemy&&) noexcept = default;
+    Enemy(Enemy&&) noexcept;
+    Enemy& operator=(Enemy&&) noexcept;
 
     void Update(float deltaTime, const class TileMap& tileMap, const Vector2 playerPos);
     void Draw() const;
