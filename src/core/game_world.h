@@ -4,6 +4,7 @@
 #include "hud.h"
 #include "dialogue_system.h"
 #include "entity_manager.h"
+#include "camera_controller.h"
 #include <raylib.h>
 #include <string>
 
@@ -48,7 +49,7 @@ public:
 private:
     TileMap m_tileMap;
     Player m_player;
-    Camera2D m_camera;
+    CameraController m_cameraController;
 
     EntityManager m_entityManager;
     float m_playerHitCooldown;

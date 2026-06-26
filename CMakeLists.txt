@@ -80,6 +80,8 @@ set(CORE_SOURCES
     src/core/combat_system.cpp
     src/core/physics_system.h
     src/core/physics_system.cpp
+    src/core/camera_controller.h
+    src/core/camera_controller.cpp
     src/core/game_world.h
     src/core/game_world.cpp
     src/core/game.h

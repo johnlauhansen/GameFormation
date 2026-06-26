@@ -8,11 +8,7 @@ GameWorld::GameWorld()
     : m_player({ (float)TileMap::kTileSize * 2.5f, (float)TileMap::kTileSize * 2.5f })
     , m_playerHitCooldown(0.0f)
 {
-    m_camera = { 0 };
-    m_camera.target = m_player.GetPosition();
-    m_camera.offset = { 800.0f / 2.0f, 600.0f / 2.0f };
-    m_camera.rotation = 0.0f;
-    m_camera.zoom = 1.2f;
+    m_cameraController.Initialize(m_player.GetPosition(), 800, 600);
 
     Reset();
 }
@@ -38,7 +34,7 @@ bool GameWorld::LoadMap(const std::string& filePath)
         }
     }
     m_player.SetPosition(spawnPos);
-    m_camera.target = spawnPos;
+    m_cameraController.Initialize(spawnPos, 800, 600);
 
     /* 2. Réinitialisation de l'inventaire et des statistiques d'amélioration */
     m_player.GetInventory().RemoveItem("sword");
