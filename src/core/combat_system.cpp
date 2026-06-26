@@ -4,6 +4,7 @@
 #include "destructible.h"
 #include "npc.h"
 #include "hud.h"
+#include "entity_manager.h"
 #include "game_world.h"
 #include "map/tile_map.h"
 #include <cmath>
@@ -12,10 +13,7 @@ namespace CombatSystem
 {
     void ResolvePlayerSwordAttacks(
         Player& player,
-        std::vector<Enemy>& enemies,
-        std::vector<Destructible>& destructibles,
-        std::vector<GroundPickup>& pickups,
-        std::vector<Npc>& npcs
+        EntityManager& entityManager
     )
     {
         if (player.GetState() != PlayerState::Attacking)
@@ -31,7 +29,7 @@ namespace CombatSystem
         }
 
         /* 1. Attaques sur les objets destructibles */
-        for (auto& dest : destructibles)
+        for (auto& dest : entityManager.GetDestructibles())
         {
             if (dest.IsAlive() && CheckCollisionRecs(attackRect, dest.GetCollisionRect()))
             {
@@ -46,12 +44,12 @@ namespace CombatSystem
                         rupee.name = "RUBIS VERT";
                         rupee.position = dest.GetPosition();
                         rupee.active = true;
-                        pickups.push_back(rupee);
+                        entityManager.AddPickup(std::move(rupee));
 
                         /* Progression de quête pour caisses détruites */
                         if (dest.GetType() == DestructibleType::Crate)
                         {
-                            for (auto& npc : npcs)
+                            for (auto& npc : entityManager.GetNpcs())
                             {
                                 auto* q = npc.GetQuest();
                                 if (q && q->state == QuestState::InProgress && q->id == "crate_hunt")
@@ -66,7 +64,7 @@ namespace CombatSystem
         }
 
         /* 2. Attaques sur les ennemis */
-        for (auto& enemy : enemies)
+        for (auto& enemy : entityManager.GetEnemies())
         {
             if (enemy.IsAlive() && CheckCollisionRecs(attackRect, enemy.GetCollisionRect()))
             {
@@ -79,7 +77,7 @@ namespace CombatSystem
                         rupee.name = "RUBIS VERT";
                         rupee.position = enemy.GetPosition();
                         rupee.active = true;
-                        pickups.push_back(rupee);
+                        entityManager.AddPickup(std::move(rupee));
                     }
                 }
             }
@@ -89,10 +87,7 @@ namespace CombatSystem
     void ResolvePlayerBoomerangAttacks(
         Player& player,
         BoomerangProjectile& boomerang,
-        std::vector<Enemy>& enemies,
-        std::vector<Destructible>& destructibles,
-        std::vector<GroundPickup>& pickups,
-        std::vector<Npc>& npcs,
+        EntityManager& entityManager,
         const TileMap& tileMap,
         float deltaTime
     )
@@ -119,7 +114,7 @@ namespace CombatSystem
             if (boomStats != nullptr)
             {
                 /* 1. Collision du boomerang contre les objets destructibles */
-                for (auto& dest : destructibles)
+                for (auto& dest : entityManager.GetDestructibles())
                 {
                     if (dest.IsAlive() && CheckCollisionRecs(boomRect, dest.GetCollisionRect()))
                     {
@@ -133,11 +128,11 @@ namespace CombatSystem
                                 rupee.name = "RUBIS VERT";
                                 rupee.position = dest.GetPosition();
                                 rupee.active = true;
-                                pickups.push_back(rupee);
+                                entityManager.AddPickup(std::move(rupee));
 
                                 if (dest.GetType() == DestructibleType::Crate)
                                 {
-                                    for (auto& npc : npcs)
+                                    for (auto& npc : entityManager.GetNpcs())
                                     {
                                         auto* q = npc.GetQuest();
                                         if (q && q->state == QuestState::InProgress && q->id == "crate_hunt")
@@ -156,7 +151,7 @@ namespace CombatSystem
                 /* 2. Collision du boomerang contre les ennemis */
                 if (!boomerang.returning)
                 {
-                    for (auto& enemy : enemies)
+                    for (auto& enemy : entityManager.GetEnemies())
                     {
                         if (enemy.IsAlive() && CheckCollisionRecs(boomRect, enemy.GetCollisionRect()))
                         {
@@ -169,7 +164,7 @@ namespace CombatSystem
                                     rupee.name = "RUBIS VERT";
                                     rupee.position = enemy.GetPosition();
                                     rupee.active = true;
-                                    pickups.push_back(rupee);
+                                    entityManager.AddPickup(std::move(rupee));
                                 }
                                 boomerang.returning = true;
                                 break;
@@ -206,7 +201,7 @@ namespace CombatSystem
 
     void ResolveEnemyDamageToPlayer(
         Player& player,
-        std::vector<Enemy>& enemies,
+        EntityManager& entityManager,
         float& playerHitCooldown,
         HUD& hud,
         float deltaTime
@@ -222,7 +217,7 @@ namespace CombatSystem
             bool playerDamaged = false;
             float damageAmount = 0.0f;
 
-            for (const auto& enemy : enemies)
+            for (const auto& enemy : entityManager.GetEnemies())
             {
                 if (enemy.IsAlive())
                 {

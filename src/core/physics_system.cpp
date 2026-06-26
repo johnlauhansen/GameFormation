@@ -2,12 +2,13 @@
 #include "player.h"
 #include "map/tile_map.h"
 #include "destructible.h"
+#include "entity_manager.h"
 
 Vector2 PhysicsSystem::ResolvePlayerMovement(
     const Player& player,
     Vector2 oldPos,
     const TileMap& tileMap,
-    const std::vector<Destructible>& destructibles
+    const EntityManager& entityManager
 )
 {
     Vector2 currentPos = player.GetPosition();
@@ -28,7 +29,7 @@ Vector2 PhysicsSystem::ResolvePlayerMovement(
     testRectX.y = oldPos.y - colRect.height / 2.0f;
 
     bool collideX = false;
-    for (const auto& dest : destructibles)
+    for (const auto& dest : entityManager.GetDestructibles())
     {
         if (dest.IsAlive() && CheckCollisionRecs(testRectX, dest.GetCollisionRect()))
         {
@@ -47,7 +48,7 @@ Vector2 PhysicsSystem::ResolvePlayerMovement(
     testRectY.y = currentPos.y - colRect.height / 2.0f;
 
     bool collideY = false;
-    for (const auto& dest : destructibles)
+    for (const auto& dest : entityManager.GetDestructibles())
     {
         if (dest.IsAlive() && CheckCollisionRecs(testRectY, dest.GetCollisionRect()))
         {

@@ -46,7 +46,7 @@ bool GameWorld::LoadMap(const std::string& filePath)
     m_player.GetInventory().m_upgradePoints = 5;
 
     /* 3. Génération des objets au sol par rapport au spawn joueur (assure la rétrocompatibilité) */
-    m_pickups.clear();
+    m_entityManager.Clear();
     
     GroundPickup swordPickup;
     swordPickup.itemId = "sword";
@@ -60,8 +60,8 @@ bool GameWorld::LoadMap(const std::string& filePath)
     boomerangPickup.position = { spawnPos.x + 80.0f, spawnPos.y };
     boomerangPickup.active = true;
 
-    m_pickups.push_back(swordPickup);
-    m_pickups.push_back(boomerangPickup);
+    m_entityManager.AddPickup(std::move(swordPickup));
+    m_entityManager.AddPickup(std::move(boomerangPickup));
 
     /* Fonction d'aide locale pour trouver un emplacement de spawn sécurisé hors des murs */
     auto findSafeSpawn = [this](Vector2 desiredPos, float width, float height) -> Vector2 {
@@ -106,8 +106,6 @@ bool GameWorld::LoadMap(const std::string& filePath)
     };
 
     /* 4. Génération des objets destructibles (mélange de spawner dynamique et d'objets Tiled) */
-    m_destructibles.clear();
-
     Vector2 crate1Pos = findSafeSpawn({ spawnPos.x - 40.0f, spawnPos.y + 40.0f }, 32.0f, 32.0f);
     Destructible crate1(DestructibleType::Crate, crate1Pos);
     
@@ -120,20 +118,20 @@ bool GameWorld::LoadMap(const std::string& filePath)
     customObj.AddVulnerableElement(ElementType::Fire);
     customObj.SetMaxHealth(50.0f);
 
-    m_destructibles.push_back(crate1);
-    m_destructibles.push_back(plant1);
-    m_destructibles.push_back(customObj);
+    m_entityManager.AddDestructible(std::move(crate1));
+    m_entityManager.AddDestructible(std::move(plant1));
+    m_entityManager.AddDestructible(std::move(customObj));
 
     // Chargement dynamique depuis le fichier de carte Tiled JSON (Data-Driven)
     for (const auto& spawn : levelOpt.value().spawns)
     {
         if (spawn.type == "Crate" || spawn.subType == "Crate")
         {
-            m_destructibles.push_back(Destructible(DestructibleType::Crate, spawn.position));
+            m_entityManager.AddDestructible(Destructible(DestructibleType::Crate, spawn.position));
         }
         else if (spawn.type == "Plant" || spawn.subType == "Plant")
         {
-            m_destructibles.push_back(Destructible(DestructibleType::Plant, spawn.position));
+            m_entityManager.AddDestructible(Destructible(DestructibleType::Plant, spawn.position));
         }
         else if (spawn.type == "Custom" || spawn.subType == "Custom")
         {
@@ -141,7 +139,7 @@ bool GameWorld::LoadMap(const std::string& filePath)
             custom.AddVulnerableDamageType(DamageType::Blunt);
             custom.AddVulnerableElement(ElementType::Fire);
             custom.SetMaxHealth(50.0f);
-            m_destructibles.push_back(custom);
+            m_entityManager.AddDestructible(std::move(custom));
         }
     }
 
@@ -149,20 +147,18 @@ bool GameWorld::LoadMap(const std::string& filePath)
     m_boomerang = BoomerangProjectile();
 
     /* 6. Génération des PNJ */
-    m_npcs.clear();
-    
     // Un villageois sympathique qui patrouille
     Vector2 villagerPos = findSafeSpawn({ spawnPos.x - 120.0f, spawnPos.y + 120.0f }, 32.0f, 32.0f);
     Npc villager("Jean le Villageois", NpcType::Villager, villagerPos);
     villager.SetPatrolZone(100.0f, 40.0f);
-    m_npcs.push_back(std::move(villager));
+    m_entityManager.AddNpc(std::move(villager));
 
     // Un donneur de quête statique à côté des caisses
     Vector2 questGiverPos = findSafeSpawn({ spawnPos.x + 160.0f, spawnPos.y - 80.0f }, 32.0f, 32.0f);
     Npc questGiver("Bucheron Bourru", NpcType::QuestGiver, questGiverPos);
     questGiver.SetStatic();
     questGiver.ConfigureQuest("crate_hunt", "Detruire les caisses encombrantes", 5, 80, 2);
-    m_npcs.push_back(std::move(questGiver));
+    m_entityManager.AddNpc(std::move(questGiver));
 
     // Un marchand ambulant avec des objets à vendre
     Vector2 merchantPos = findSafeSpawn({ spawnPos.x - 180.0f, spawnPos.y - 120.0f }, 32.0f, 32.0f);
@@ -171,27 +167,25 @@ bool GameWorld::LoadMap(const std::string& filePath)
     merchant.AddMerchantItem("heal_potion", "Potion de Sante", 10, "Restaure completement vos coeurs.");
     merchant.AddMerchantItem("forge_point", "Infu de Point de Forge", 25, "Ajoute 1 point de forge precieux.");
     merchant.AddMerchantItem("boomerang", "Boomerang d'acier", 40, "Arme de jet rotative secondaire.");
-    m_npcs.push_back(std::move(merchant));
+    m_entityManager.AddNpc(std::move(merchant));
 
     /* 7. Génération des Ennemis */
-    m_enemies.clear();
-
     // Quelques Slimes patrouilleurs
     Vector2 slime1Pos = findSafeSpawn({ spawnPos.x + 200.0f, spawnPos.y + 200.0f }, 32.0f, 32.0f);
     Enemy slime1("Slime Vert", EnemyType::Slime, slime1Pos);
     slime1.SetPatrolZone(80.0f, 50.0f);
-    m_enemies.push_back(slime1);
+    m_entityManager.AddEnemy(std::move(slime1));
 
     Vector2 slime2Pos = findSafeSpawn({ spawnPos.x - 200.0f, spawnPos.y + 250.0f }, 32.0f, 32.0f);
     Enemy slime2("Slime Agile", EnemyType::Slime, slime2Pos);
     slime2.SetPatrolZone(60.0f, 70.0f);
-    m_enemies.push_back(slime2);
+    m_entityManager.AddEnemy(std::move(slime2));
 
     // Un Octorok à distance
     Vector2 octorokPos = findSafeSpawn({ spawnPos.x + 300.0f, spawnPos.y - 150.0f }, 32.0f, 32.0f);
     Enemy octorok("Octorok Rouge", EnemyType::Octorok, octorokPos);
     octorok.SetPatrolZone(50.0f, 30.0f);
-    m_enemies.push_back(octorok);
+    m_entityManager.AddEnemy(std::move(octorok));
 
     // Un Moblin d'élite patrouillant sur un chemin défini
     Vector2 moblinPos = findSafeSpawn({ spawnPos.x - 250.0f, spawnPos.y - 200.0f }, 36.0f, 36.0f);
@@ -203,7 +197,13 @@ bool GameWorld::LoadMap(const std::string& filePath)
         { moblinPos.x, moblinPos.y - 150.0f }
     };
     moblin.SetDefinedPath(moblinWaypoints, 60.0f);
-    m_enemies.push_back(moblin);
+    m_entityManager.AddEnemy(std::move(moblin));
+
+    m_playerHitCooldown = 0.0f;
+
+    m_hud.Reset();
+
+    return true;
 
     m_playerHitCooldown = 0.0f;
 
@@ -225,30 +225,17 @@ void GameWorld::Update(float deltaTime)
 
     /* 2. Mettre à jour les acteurs */
     m_player.Update(deltaTime);
-
-    for (auto& dest : m_destructibles)
-    {
-        dest.Update(deltaTime);
-    }
-
-    for (auto& npc : m_npcs)
-    {
-        npc.Update(deltaTime, m_tileMap);
-    }
-
-    for (auto& enemy : m_enemies)
-    {
-        enemy.Update(deltaTime, m_tileMap, m_player.GetPosition());
-    }
+    
+    m_entityManager.Update(deltaTime, m_tileMap, m_player.GetPosition());
 
     /* 3. Résoudre les déplacements physiques glissants du joueur via PhysicsSystem */
-    const Vector2 resolvedPos = PhysicsSystem::ResolvePlayerMovement(m_player, oldPos, m_tileMap, m_destructibles);
+    const Vector2 resolvedPos = PhysicsSystem::ResolvePlayerMovement(m_player, oldPos, m_tileMap, m_entityManager);
     m_player.SetPosition(resolvedPos);
 
     /* 4. Initier un dialogue si le joueur appuie sur E à proximité d'un PNJ */
     if (IsKeyPressed(KEY_E))
     {
-        for (auto& npc : m_npcs)
+        for (auto& npc : m_entityManager.GetNpcs())
         {
             if (npc.IsPlayerNear(m_player.GetPosition()))
             {
@@ -259,7 +246,7 @@ void GameWorld::Update(float deltaTime)
     }
 
     /* 5. Gérer le combat (Épée, Boomerang, et Dégâts ennemis sur joueur) via CombatSystem */
-    CombatSystem::ResolvePlayerSwordAttacks(m_player, m_enemies, m_destructibles, m_pickups, m_npcs);
+    CombatSystem::ResolvePlayerSwordAttacks(m_player, m_entityManager);
 
     /* Gestion de l'input et initialisation du boomerang dans GameWorld, puis résolution physique dans CombatSystem */
     if (m_player.GetInventory().HasItem("boomerang"))
@@ -309,12 +296,12 @@ void GameWorld::Update(float deltaTime)
         }
     }
 
-    CombatSystem::ResolvePlayerBoomerangAttacks(m_player, m_boomerang, m_enemies, m_destructibles, m_pickups, m_npcs, m_tileMap, deltaTime);
+    CombatSystem::ResolvePlayerBoomerangAttacks(m_player, m_boomerang, m_entityManager, m_tileMap, deltaTime);
 
-    CombatSystem::ResolveEnemyDamageToPlayer(m_player, m_enemies, m_playerHitCooldown, m_hud, deltaTime);
+    CombatSystem::ResolveEnemyDamageToPlayer(m_player, m_entityManager, m_playerHitCooldown, m_hud, deltaTime);
 
     /* 6. Détection de collecte des objets au sol */
-    for (auto& pickup : m_pickups)
+    for (auto& pickup : m_entityManager.GetPickups())
     {
         if (pickup.active)
         {
@@ -349,64 +336,7 @@ void GameWorld::Draw() const
 
     m_tileMap.Draw();
 
-    /* Dessiner les objets destructibles */
-    for (const auto& dest : m_destructibles)
-    {
-        dest.Draw();
-    }
-
-    /* Dessiner les PNJ */
-    for (const auto& npc : m_npcs)
-    {
-        npc.Draw();
-    }
-
-    /* Dessiner les Ennemis */
-    for (const auto& enemy : m_enemies)
-    {
-        enemy.Draw();
-    }
-
-    /* Dessiner les objets au sol */
-    for (const auto& pickup : m_pickups)
-    {
-        if (pickup.active)
-        {
-            if (pickup.itemId == "sword")
-            {
-                /* Dessin d'une petite épée grise inclinée au sol */
-                DrawLineEx({ pickup.position.x - 8, pickup.position.y + 8 }, { pickup.position.x + 8, pickup.position.y - 8 }, 3.5f, LIGHTGRAY);
-                DrawLineEx({ pickup.position.x - 10, pickup.position.y + 10 }, { pickup.position.x - 6, pickup.position.y + 6 }, 4.0f, BROWN);
-                DrawCircleV({ pickup.position.x + 8, pickup.position.y - 8 }, 2.5f, WHITE);
-            }
-            else if (pickup.itemId == "boomerang")
-            {
-                /* Dessin d'un boomerang bleu ciel rotatif doux */
-                DrawCircleSector(pickup.position, 10.0f, 45.0f, 225.0f, 4, SKYBLUE);
-                DrawCircleLinesV(pickup.position, 10.0f, WHITE);
-            }
-            else if (pickup.itemId == "rupee")
-            {
-                /* Dessin d'un rubis vert brillant au sol */
-                float rx = pickup.position.x;
-                float ry = pickup.position.y;
-                float rw = 10.0f;
-                float rh = 16.0f;
-                float rh2 = rh * 0.3f;
-                Color color = GREEN;
-                DrawRectangle((int)(rx - rw/2), (int)(ry - rh/2 + rh2), (int)rw, (int)(rh - 2*rh2), color);
-                DrawTriangle({ rx - rw/2, ry - rh/2 + rh2 }, { rx + rw/2, ry - rh/2 + rh2 }, { rx, ry - rh/2 }, color);
-                DrawTriangle({ rx, ry + rh/2 }, { rx + rw/2, ry + rh/2 - rh2 }, { rx - rw/2, ry + rh/2 - rh2 }, color);
-                
-                DrawLineEx({ rx, ry - rh/2 }, { rx - rw/2, ry - rh/2 + rh2 }, 1.0f, WHITE);
-                DrawLineEx({ rx - rw/2, ry - rh/2 + rh2 }, { rx - rw/2, ry + rh/2 - rh2 }, 1.0f, WHITE);
-                DrawLineEx({ rx - rw/2, ry + rh/2 - rh2 }, { rx, ry + rh/2 }, 1.0f, WHITE);
-                DrawLineEx({ rx, ry + rh/2 }, { rx + rw/2, ry + rh/2 - rh2 }, 1.0f, WHITE);
-                DrawLineEx({ rx + rw/2, ry + rh/2 - rh2 }, { rx + rw/2, ry - rh/2 + rh2 }, 1.0f, WHITE);
-                DrawLineEx({ rx + rw/2, ry - rh/2 + rh2 }, { rx, ry - rh/2 }, 1.0f, WHITE);
-            }
-        }
-    }
+    m_entityManager.Draw();
 
     m_player.Draw();
 
@@ -437,7 +367,7 @@ void GameWorld::Draw() const
 
     EndMode2D();
 
-    m_hud.Draw(m_player, m_tileMap, m_destructibles, m_pickups);
+    m_hud.Draw(m_player, m_tileMap, m_entityManager.GetDestructibles(), m_entityManager.GetPickups());
 
     /* Rendu du DialogueSystem en espace écran */
     if (m_dialogueSystem.IsActive())
@@ -448,7 +378,7 @@ void GameWorld::Draw() const
     {
         /* On cherche si un PNJ est proche pour afficher le prompt d'interaction */
         const Npc* nearNpc = nullptr;
-        for (const auto& npc : m_npcs)
+        for (const auto& npc : m_entityManager.GetNpcs())
         {
             if (npc.IsPlayerNear(m_player.GetPosition()))
             {

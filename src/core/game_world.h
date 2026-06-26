@@ -1,13 +1,10 @@
 #pragma once
 #include "player.h"
-#include "destructible.h"
 #include "map/tile_map.h"
 #include "hud.h"
-#include "npc.h"
-#include "enemy.h"
 #include "dialogue_system.h"
+#include "entity_manager.h"
 #include <raylib.h>
-#include <vector>
 #include <string>
 
 struct BoomerangProjectile
@@ -53,10 +50,7 @@ private:
     Player m_player;
     Camera2D m_camera;
 
-    std::vector<GroundPickup> m_pickups;
-    std::vector<Destructible> m_destructibles;
-    std::vector<Npc> m_npcs;
-    std::vector<Enemy> m_enemies;
+    EntityManager m_entityManager;
     float m_playerHitCooldown;
     DialogueSystem m_dialogueSystem;
     BoomerangProjectile m_boomerang;
