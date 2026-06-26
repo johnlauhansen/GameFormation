@@ -212,6 +212,22 @@ bool GameWorld::LoadMap(const std::string& filePath)
 
             m_entityManager.AddEnemy(std::move(enemy));
         }
+        /* --- Portails --- */
+        else if (spawn.type == "Portal" || spawn.subType == "Portal")
+        {
+            Portal portal;
+            portal.rect = { spawn.position.x - 20.0f, spawn.position.y - 20.0f, 40.0f, 40.0f };
+            portal.targetMap = spawn.GetProperty("target_map", "");
+            
+            float tx = std::stof(spawn.GetProperty("target_x", std::to_string(spawn.targetSpawn.x)));
+            float ty = std::stof(spawn.GetProperty("target_y", std::to_string(spawn.targetSpawn.y)));
+            portal.targetSpawn = { tx, ty };
+            portal.name = spawn.GetProperty("name", "Transition");
+            portal.portalId = spawn.GetProperty("portal_id", "");
+            portal.targetPortalId = spawn.GetProperty("target_portal_id", "");
+
+            m_entityManager.AddPortal(std::move(portal));
+        }
     }
 
     /* 5. Génération par défaut des PNJ et Ennemis (Fallback si la carte JSON n'en contient pas) */
@@ -270,6 +286,7 @@ bool GameWorld::LoadMap(const std::string& filePath)
     }
 
     m_playerHitCooldown = 0.0f;
+    m_currentMapPath = filePath;
 
     m_hud.Reset();
 
@@ -295,6 +312,79 @@ void GameWorld::Update(float deltaTime)
     /* 3. Résoudre les déplacements physiques glissants du joueur via PhysicsSystem */
     const Vector2 resolvedPos = PhysicsSystem::ResolvePlayerMovement(m_player, oldPos, m_tileMap, m_entityManager);
     m_player.SetPosition(resolvedPos);
+
+    /* 3.5 Vérification des collisions avec les Portails pour les transitions de cartes */
+    for (const auto& portal : m_entityManager.GetPortals())
+    {
+        if (CheckCollisionRecs(m_player.GetCollisionRect(), portal.rect))
+        {
+            if (portal.targetMap == "previous" || portal.targetMap == "back")
+            {
+                if (!m_mapHistory.empty())
+                {
+                    MapHistory prev = m_mapHistory.back();
+                    m_mapHistory.pop_back();
+                    
+                    if (LoadMap(prev.mapPath))
+                    {
+                        m_player.SetPosition(prev.spawnPosition);
+                        m_cameraController.Initialize(prev.spawnPosition, 800, 600);
+                        m_hud.TriggerNotification("Retour a l'exterieur !", 1.5f);
+                    }
+                }
+            }
+            else if (!portal.targetMap.empty())
+            {
+                /* On copie les valeurs localement avant d'appeler LoadMap()
+                 * car LoadMap réinitialise l'EntityManager et invalide la référence 'portal' ! */
+                std::string tMap = portal.targetMap;
+                Vector2 tSpawn = portal.targetSpawn;
+                std::string tPortalId = portal.targetPortalId;
+
+                /* Sauvegarder la carte et la position de retour du joueur avant transition */
+                MapHistory hist;
+                hist.mapPath = m_currentMapPath;
+                
+                // On recule un tout petit peu la position de retour pour éviter une boucle de téléportation infinie en revenant !
+                Vector2 returnPos = oldPos;
+                if (m_player.GetDirection() == Direction::Up) returnPos.y += 20.0f;
+                else if (m_player.GetDirection() == Direction::Down) returnPos.y -= 20.0f;
+                else if (m_player.GetDirection() == Direction::Left) returnPos.x += 20.0f;
+                else if (m_player.GetDirection() == Direction::Right) returnPos.x -= 20.0f;
+
+                hist.spawnPosition = returnPos;
+                m_mapHistory.push_back(hist);
+
+                if (LoadMap(tMap))
+                {
+                    Vector2 finalSpawn = tSpawn;
+                    bool portalMatchFound = false;
+
+                    /* Si un targetPortalId a été spécifié, on recherche le portail cible sur la nouvelle carte ! */
+                    if (!tPortalId.empty())
+                    {
+                        for (const auto& targetPortal : m_entityManager.GetPortals())
+                        {
+                            if (targetPortal.portalId == tPortalId)
+                            {
+                                finalSpawn = {
+                                    targetPortal.rect.x + targetPortal.rect.width / 2.0f,
+                                    targetPortal.rect.y + targetPortal.rect.height / 2.0f
+                                };
+                                portalMatchFound = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    m_player.SetPosition(finalSpawn);
+                    m_cameraController.Initialize(finalSpawn, 800, 600);
+                    m_hud.TriggerNotification("Entre dans le batiment !", 1.5f);
+                }
+            }
+            break; /* On ne peut prendre qu'un portail à la fois par frame */
+        }
+    }
 
     /* 4. Initier un dialogue si le joueur appuie sur E à proximité d'un PNJ */
     if (IsKeyPressed(KEY_E))

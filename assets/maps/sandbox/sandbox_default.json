@@ -36,6 +36,34 @@
           "type": "PlayerSpawn",
           "x": 340.0,
           "y": 220.0
+        },
+        {
+          "name": "Entree Maison de Test",
+          "type": "Portal",
+          "x": 200.0,
+          "y": 160.0,
+          "properties": [
+            {
+              "name": "target_map",
+              "type": "string",
+              "value": "assets/maps/sandbox/sandbox_house.json"
+            },
+            {
+              "name": "portal_id",
+              "type": "string",
+              "value": "porte_exterieure"
+            },
+            {
+              "name": "target_x",
+              "type": "float",
+              "value": 240.0
+            },
+            {
+              "name": "target_y",
+              "type": "float",
+              "value": 200.0
+            }
+          ]
         }
       ]
     }

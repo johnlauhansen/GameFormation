@@ -47,6 +47,12 @@ public:
     }
 
 private:
+    struct MapHistory
+    {
+        std::string mapPath;
+        Vector2 spawnPosition;
+    };
+
     TileMap m_tileMap;
     Player m_player;
     CameraController m_cameraController;
@@ -56,5 +62,8 @@ private:
     DialogueSystem m_dialogueSystem;
     BoomerangProjectile m_boomerang;
     
+    std::vector<MapHistory> m_mapHistory;
+    std::string m_currentMapPath;
+
     HUD m_hud;
 };

@@ -81,13 +81,21 @@ std::optional<MapLevel> MapLoader::LoadFromJson(const std::string& filePath)
                             {
                                 propValueStr = prop.at("value").get<std::string>();
                             }
-                            else if (prop.at("value").is_number_integer() || prop.at("value").is_boolean())
+                            else if (prop.at("value").is_number())
                             {
-                                propValueStr = std::to_string(prop.at("value").get<int>());
+                                double val = prop.at("value").get<double>();
+                                if (val == std::floor(val))
+                                {
+                                    propValueStr = std::to_string((int)val);
+                                }
+                                else
+                                {
+                                    propValueStr = std::to_string(val);
+                                }
                             }
-                            else if (prop.at("value").is_number_float())
+                            else if (prop.at("value").is_boolean())
                             {
-                                propValueStr = std::to_string(prop.at("value").get<float>());
+                                propValueStr = prop.at("value").get<bool>() ? "1" : "0";
                             }
                             
                             spawn.properties[propName] = propValueStr;

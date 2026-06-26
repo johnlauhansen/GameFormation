@@ -1,0 +1,83 @@
+{
+  "width": 12,
+  "height": 9,
+  "tilewidth": 40,
+  "tileheight": 40,
+  "layers": [
+    {
+      "name": "Background",
+      "type": "tilelayer",
+      "width": 12,
+      "height": 9,
+      "data": [
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 2, 2, 2, 2, 2, 0, 0, 0, 1,
+        1, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 1,
+        1, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 1,
+        1, 0, 0, 2, 2, 0, 2, 2, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+      ]
+    },
+    {
+      "name": "Objects",
+      "type": "objectgroup",
+      "objects": [
+        {
+          "name": "PlayerSpawn",
+          "type": "PlayerSpawn",
+          "x": 240.0,
+          "y": 200.0
+        },
+        {
+          "name": "Sortie de la Maison",
+          "type": "Portal",
+          "x": 240.0,
+          "y": 320.0,
+          "properties": [
+            {
+              "name": "target_map",
+              "type": "string",
+              "value": "previous"
+            }
+          ]
+        },
+        {
+          "name": "Jean le Villageois de l'interieur",
+          "type": "Npc",
+          "x": 360.0,
+          "y": 160.0,
+          "properties": [
+            {
+              "name": "name",
+              "type": "string",
+              "value": "Jean l'Hote"
+            },
+            {
+              "name": "npc_type",
+              "type": "string",
+              "value": "Villager"
+            },
+            {
+              "name": "dialogue1",
+              "type": "string",
+              "value": "Bienvenue dans ma maison de test !"
+            },
+            {
+              "name": "dialogue2",
+              "type": "string",
+              "value": "Ici, tout est au chaud."
+            },
+            {
+              "name": "dialogue3",
+              "type": "string",
+              "value": "Vous pouvez repartir par la porte au sud quand vous le souhaitez."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

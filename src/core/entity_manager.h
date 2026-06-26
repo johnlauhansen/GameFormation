@@ -6,6 +6,16 @@
 #include <vector>
 #include <raylib.h>
 
+struct Portal
+{
+    Rectangle rect;
+    std::string targetMap;
+    Vector2 targetSpawn;
+    std::string name;
+    std::string portalId;       /* ID unique de ce portail (ex: "porte_maison", "sortie_maison") */
+    std::string targetPortalId; /* ID du portail cible sur la carte de destination */
+};
+
 class TileMap;
 
 class EntityManager
@@ -22,6 +32,7 @@ public:
     void AddEnemy(Enemy&& enemy);
     void AddDestructible(Destructible&& destructible);
     void AddPickup(GroundPickup&& pickup);
+    void AddPortal(Portal&& portal);
 
     /* Accesseurs pour les sous-systèmes (Combat, Physics, Dialogue) */
     [[nodiscard]] std::vector<Npc>& GetNpcs() { return m_npcs; }
@@ -36,9 +47,13 @@ public:
     [[nodiscard]] std::vector<GroundPickup>& GetPickups() { return m_pickups; }
     [[nodiscard]] const std::vector<GroundPickup>& GetPickups() const { return m_pickups; }
 
+    [[nodiscard]] std::vector<Portal>& GetPortals() { return m_portals; }
+    [[nodiscard]] const std::vector<Portal>& GetPortals() const { return m_portals; }
+
 private:
     std::vector<Npc> m_npcs;
     std::vector<Enemy> m_enemies;
     std::vector<Destructible> m_destructibles;
     std::vector<GroundPickup> m_pickups;
+    std::vector<Portal> m_portals;
 };

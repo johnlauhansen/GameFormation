@@ -71,6 +71,12 @@ void EntityManager::Draw() const
             }
         }
     }
+    /* Dessiner les portails (zones de transition bleutées translucides) */
+    for (const auto& portal : m_portals)
+    {
+        DrawRectangleRec(portal.rect, Fade(SKYBLUE, 0.3f));
+        DrawRectangleLinesEx(portal.rect, 1.5f, SKYBLUE);
+    }
 }
 
 void EntityManager::Clear()
@@ -79,6 +85,7 @@ void EntityManager::Clear()
     m_enemies.clear();
     m_destructibles.clear();
     m_pickups.clear();
+    m_portals.clear();
 }
 
 void EntityManager::AddNpc(Npc&& npc)
@@ -99,4 +106,9 @@ void EntityManager::AddDestructible(Destructible&& destructible)
 void EntityManager::AddPickup(GroundPickup&& pickup)
 {
     m_pickups.push_back(std::move(pickup));
+}
+
+void EntityManager::AddPortal(Portal&& portal)
+{
+    m_portals.push_back(std::move(portal));
 }
