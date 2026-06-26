@@ -574,6 +574,45 @@ private:
 
 ---
 
+## 5. Commentaire, Documentation & Lisibilité (Mandat Obligatoire)
+
+La documentation et la lisibilité du code par l'auto-documentation sont des priorités absolues du projet :
+
+### 5.1 Commentaires d'en-tête (Doxygen)
+Toutes les classes, structures, énumérations, et déclarations de méthodes publiques dans les fichiers d'en-tête (`.h`) doivent inclure un commentaire explicatif clair au format **Doxygen** détaillant :
+*   Leur but et utilité au sein de l'architecture.
+*   Les paramètres d'entrée (`@param`).
+*   Le type et la sémantique de retour (`@return`).
+
+```cpp
+/*
+ * Classe représentant le contrôleur lissé de la caméra en 2D.
+ * Gère l'interpolation linéaire (Lerp) de la position vers le joueur.
+ */
+class CameraController
+{
+public:
+    /*
+     * Met à jour la position de la caméra vers le joueur de façon amortie.
+     * @param[in] deltaTime Temps écoulé depuis la dernière frame (en secondes).
+     * @param[in] targetPos Coordonnées cibles (généralement la position du joueur).
+     */
+    void Update(float deltaTime, Vector2 targetPos);
+};
+```
+
+### 5.2 Commentaires de Logique Interne (`.cpp`)
+Chaque étape algorithmique clé ou bloc logique complexe dans les fichiers sources (`.cpp`) doit comporter des commentaires courts en français/anglais expliquant le **"pourquoi"** de l'opération (et non le "quoi", qui est déjà évident par le code).
+
+```cpp
+// On recule légèrement la position de retour pour éviter que le joueur ne re-déclenche
+// le portail d'entrée instantanément à sa réapparition (boucle de téléportation infinie).
+Vector2 returnPos = oldPos;
+if (m_player.GetDirection() == Direction::Up) returnPos.y += 20.0f;
+```
+
+---
+
 ## 8. Récapitulatif — Ce que le LLM doit respecter
 
 | Règle | Valeur |
@@ -587,6 +626,7 @@ private:
 | Naming fichiers | snake_case |
 | Accolades | Style Allman (accolade sur nouvelle ligne) |
 | Indentation | 4 espaces |
+| Commentaires | Obligatoires, style Doxygen dans les headers et explicatifs (.cpp) |
 | Allocation heap | `std::make_unique<>` uniquement, jamais `new` brut |
 | Exceptions | Interdites (`-fno-exceptions`) |
 | Gestion d'erreurs | `assert` en debug, `std::optional` pour les retours faillibles |
