@@ -44,6 +44,8 @@ gameFormation/
 │   ├── core/              # GAME SYSTEM CONTROLLERS
 │   │   ├── player.h/.cpp       # Player: movement, animations, attack hitbox scaling
 │   │   ├── inventory.h         # Item & Inventory systems, spent points, Wide Enums
+│   │   ├── npc.h/.cpp          # NPCs: Dialogue, Quest, and Merchant systems
+│   │   ├── enemy.h/.cpp         # Enemies: Slime, Octorok, Moblin and projectile shooting
 │   │   ├── game_world.h/.cpp   # GameWorld: camera, entities, and ground pickups resolver
 │   │   └── game.h/.cpp         # Main Game: screens state machine (Title, Game, Options)
 │   │
@@ -55,6 +57,63 @@ gameFormation/
 │   ├── main.cpp           # Main game entry point (Window initialization)
 │   └── sandbox.cpp        # Sandbox entry point (Filesystem scanner, boomerang prototype)
 └── CMakeLists.txt         # Root build script defining both targets & Fetches
+```
+
+### E. Current Game Class Architecture Diagram
+
+Below is the structured relational class layout of **gameFormation**, outlining ownerships, system boundaries, and runtime communications:
+
+```text
+                               +-------------------+
+                               |     main.cpp      |
+                               +---------+---------+
+                                         |
+                                         v
+                               +-------------------+
+                               |    Game Class     | <--- [Screen state machine: Pause, Title, Forge]
+                               +---------+---------+
+                                         |
+                                         | (owns & updates)
+                                         v
+                               +-------------------+
+                               |  GameWorld Class  | <--- [Resolves camera, collisions, updates loop]
+                               +----+----+---------+
+                                    |    |
+      +-----------------------------+    +-----------------------------+
+      | (owns & draws in Mode2D)                                       | (owns & updates)
+      v                                                                v
++--------------+                                                +--------------+
+|   TileMap    | <--- [Visual layout, 1D grid,                  |    Player    | <--- [Movement, slash hitboxes,
++--------------+       AABB solid collision mask]               +------+-------+       health, magic & rupees]
+                                                                       | (owns)
+                                                                       v
+                                                                +--------------+
+                                                                |  Inventory   | <--- [Weapon lists, elemental cycles,
+                                                                +--------------+       available forge points]
+
+                               +-------------------+
+                               |  GameWorld Class  |
+                               +----+----+---------+
+                                    |    |
+      +-----------------------------+    +-----------------------------+
+      | (owns & updates dynamic collections)                           | (owns screen-space status overlay)
+      v                                                                v
++----------------------------------------------------+          +--------------+
+| Dynamic Game Entities & Pickups                    |          |     HUD      | <--- [Displays hearts, magic meter,
+|                                                    |          +--------------+       rupees & dynamic notifications]
+|  - std::vector<Destructible> (Crates, Plants, ...) |
+|  - std::vector<GroundPickup> (Rupees, Weapons)     |
+|  - BoomerangProjectile (Player active projectile)  |
+|                                                    |
+|  - std::vector<Npc> -------------------------------+----> [Npc Components]
+|    * Villager, QuestGiver, Merchant                |      - Dialogue seq state-machine
+|                                                    |      - Active Quest (Crate hunts progress)
+|                                                    |      - Merchant Catalog (potion, points, items)
+|                                                    |
+|  - std::vector<Enemy> -----------------------------+----> [Enemy Projectiles]
+|    * Slime, Octorok, Moblin                        |      - Active stone projectiles fired
+|    * Static, PatrolZone, or DefinedPath movement   |        periodically by Octoroks
++----------------------------------------------------+
 ```
 
 ---
@@ -80,6 +139,21 @@ gameFormation/
 * The game world rendering is wrapped inside a **`Camera2D`** controller.
 * **Smooth Scrolling (Lerp)**: The camera follows the player's movements using a smooth linear interpolation formula (`0.1f` damping), allowing them to explore giant maps (like `giant_adventure.json`, twice the size of an 800x600 screen) while remaining comfortably centered.
 * All screen-space HUD panels, notifications, and menus are rendered outside of `BeginMode2D` to remain perfectly static on the screen.
+
+### D. Extensible NPC, Quest & Enemy Systems
+* **Customizable Movement Patterns**: Both NPCs and Enemies share support for three movement models:
+  - `Static`: Immobile positioning.
+  - `PatrolZone`: Dynamic random walk inside a defined radius around starting coordinates with randomized wait timers and automatic obstacle backtracking.
+  - `DefinedPath`: Round-trip patrolling along predefined coordinates (waypoints) with looping or ping-pong switching.
+* **Dialogue & Quest Giver State Machine**:
+  - Sequence of dialogues advancing via keyboard inputs.
+  - Interactive Quest Giver checks states (`NotStarted`, `InProgress`, `ReadyToComplete`, `Completed`). It automatically evaluates targets (e.g. wooden crate destructions) and grants Rupees & Forge upgrade points on completion.
+* **Merchant Shops**: Open static, gorgeous shop UI overlays displaying player cash, available catalog (potions, forge points, boomerangs) and purchase eligibility in red/green indicators based on affordability.
+* **Dynamic Enemy AI**:
+  - `Slime`: Periodic shape-shifting pulsing body, slow patrol, and proximity player chase state.
+  - `Octorok`: Ranged target shooting, firing sand stones towards player using Vector2 direction math.
+  - `Moblin`: Swift, armored humanoid executing high-speed pursuit on player detection.
+  - Full feedback loop: damage flash timers, invulnerability frames, and green rupee drops on death.
 
 ---
 

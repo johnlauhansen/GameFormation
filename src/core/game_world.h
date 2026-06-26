@@ -3,6 +3,8 @@
 #include "destructible.h"
 #include "map/tile_map.h"
 #include "hud.h"
+#include "npc.h"
+#include "enemy.h"
 #include <raylib.h>
 #include <vector>
 #include <string>
@@ -52,6 +54,9 @@ private:
 
     std::vector<GroundPickup> m_pickups;
     std::vector<Destructible> m_destructibles;
+    std::vector<Npc> m_npcs;
+    std::vector<Enemy> m_enemies;
+    float m_playerHitCooldown;
     BoomerangProjectile m_boomerang;
     
     HUD m_hud;

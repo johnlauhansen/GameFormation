@@ -68,6 +68,10 @@ set(CORE_SOURCES
     src/core/hud.cpp
     src/core/destructible.h
     src/core/destructible.cpp
+    src/core/npc.h
+    src/core/npc.cpp
+    src/core/enemy.h
+    src/core/enemy.cpp
     src/core/game_world.h
     src/core/game_world.cpp
     src/core/game.h
