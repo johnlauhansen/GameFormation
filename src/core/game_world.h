@@ -2,17 +2,10 @@
 #include "player.h"
 #include "destructible.h"
 #include "map/tile_map.h"
+#include "hud.h"
 #include <raylib.h>
 #include <vector>
 #include <string>
-
-struct GroundPickup
-{
-    std::string itemId;       /* "sword", "boomerang" */
-    std::string name;         /* Nom affiché lors de la collecte */
-    Vector2 position;
-    bool active = true;
-};
 
 struct BoomerangProjectile
 {
@@ -53,11 +46,6 @@ public:
     }
 
 private:
-    void DrawHUD() const;
-    void DrawHeart(float x, float y, float size, float fillPercent) const;
-    void DrawEquippedItemBox(float x, float y, const std::string& label, const std::string& itemId, const std::string& keyName) const;
-    void DrawMiniMap(float x, float y, float w, float h) const;
-
     TileMap m_tileMap;
     Player m_player;
     Camera2D m_camera;
@@ -66,7 +54,5 @@ private:
     std::vector<Destructible> m_destructibles;
     BoomerangProjectile m_boomerang;
     
-    /* Notification d'objet collecté temporaire */
-    std::string m_notificationText;
-    float m_notificationTimer;
+    HUD m_hud;
 };

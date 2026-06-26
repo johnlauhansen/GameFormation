@@ -63,6 +63,9 @@ set(CORE_SOURCES
     src/core/player.h
     src/core/player.cpp
     src/core/inventory.h
+    src/core/ground_pickup.h
+    src/core/hud.h
+    src/core/hud.cpp
     src/core/destructible.h
     src/core/destructible.cpp
     src/core/game_world.h

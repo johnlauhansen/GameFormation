@@ -38,7 +38,8 @@ gameFormation/
 │           └── giant_adventure.json (1600x1200 scrolling map)
 │
 ├── markdown/
-│   └── CodingStandard.md  # Official C++ Coding Standards (Zelda-like with Raylib)
+│   ├── CodingStandard.md             # Official C++ Coding Standards (Zelda-like with Raylib)
+│   └── ArchitectureBestPractices.md  # Architectural Guidelines (Zelda-like Action-RPG)
 ├── src/
 │   ├── core/              # GAME SYSTEM CONTROLLERS
 │   │   ├── player.h/.cpp       # Player: movement, animations, attack hitbox scaling
@@ -82,9 +83,13 @@ gameFormation/
 
 ---
 
-## 📜 4. Mandatory Coding Standards (Custom C++17)
+## 📜 4. Mandatory Coding Standards & Architectural Guidelines (Custom C++17)
 
-All files under `src/` must adhere strictly to the standards defined in `markdown/CodingStandard.md`. The key mandates to preserve in every future change are:
+All files under `src/` must adhere strictly to the rules and conventions defined in the reference files located inside the `markdown/` folder:
+*   **`markdown/CodingStandard.md`** : Clean code formatting, naming, and C++17 syntax guidelines.
+*   **`markdown/ArchitectureBestPractices.md`** : Architectural and decoupling patterns (Composition, Events, Asset management, states) for a Zelda-style Action-RPG.
+
+The key mandates to preserve in every future change are:
 
 ### A. Indentation & Formatting
 * **Indent using 4 SPACES only**, never tabs.
