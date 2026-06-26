@@ -48,12 +48,18 @@ gameFormation/
 │   │   ├── enemy.h/.cpp        # Enemies: Context class holding stats and active projectiles
 │   │   ├── enemy_behavior.h/.cpp # Enemy behaviors: SlimeBehavior, OctorokBehavior, MoblinBehavior (Strategy Pattern)
 │   │   ├── entity_manager.h/.cpp # EntityManager: owns, updates, draws and clears all active entities
+│   │   ├── spatial_grid.h/.cpp    # SpatialGrid: O(1) broadphase collision optimization
 │   │   ├── dialogue_system.h/.cpp # DialogueSystem: sequences speech, merchant shop UI & keyboard inputs
 │   │   ├── combat_system.h/.cpp   # CombatSystem: sword/boomerang physics, damage resolution
 │   │   ├── physics_system.h/.cpp  # PhysicsSystem: players sliding collision checks & tile glides
 │   │   ├── camera_controller.h/.cpp # CameraController: encapsulates Camera2D and lerp-smoothed target tracking
-│   │   ├── game_world.h/.cpp   # GameWorld: main orchestrator managing scenes and camera-view setups
-│   │   └── game.h/.cpp         # Main Game: screens state machine (Title, Game, Options)
+│   │   ├── event_system.h/.cpp    # EventSystem: globally decouples quest tracking via Observer Pattern
+│   │   ├── database.h/.cpp        # Database: parses external JSON gabarits for entities/dialogues
+│   │   ├── scene.h                # IScene polymorphic interface
+│   │   ├── scene_manager.h/.cpp   # SceneManager: FSM stack for game screens
+│   │   ├── *_scene.h/.cpp         # Specific scenes (Title, Gameplay, Options, Inventory)
+│   │   ├── game_world.h/.cpp   # GameWorld: main orchestrator managing the gameplay sandbox
+│   │   └── game.h/.cpp         # Main Game: entry class hosting the SceneManager
 │   │
 │   ├── map/               # MAP AND RENDERING MODULES
 │   │   ├── tile_map.h/.cpp     # Dynamic TileMap: linear vector layout, AABB collision glides
@@ -70,51 +76,70 @@ gameFormation/
 Below is the structured relational class layout of **gameFormation**, outlining ownerships, system boundaries, and runtime communications:
 
 ```text
-                               +-------------------+
-                               |     main.cpp      |
-                               +---------+---------+
-                                         |
-                                         v
-                               +-------------------+
-                               |    Game Class     | <--- [Screen state machine: Pause, Title, Forge]
-                               +---------+---------+
-                                         |
-                                         | (owns & updates)
-                                         v
-                               +-------------------+
-                               |  GameWorld Class  | <--- [Central Orchestrator: delegates all actions]
-                               +----+----+----+----+
-                                    |    |    |
-       +----------------------------+    |    +----------------------------+
-       | (owns)                          | (owns)                          | (owns & delegates)
-       v                                 v                                 v
-+--------------+                 +--------------+                 +--------------------+
-|   TileMap    | <--- [Grid]     |    Player    |                 | Active Subsystems  |
-+--------------+                 +------+-------+                 |                    |
-                                        | (owns)                  | - DialogueSystem   |
-                                        v                         | - CombatSystem     |
-                                 +--------------+                 | - PhysicsSystem    |
-                                 |  Inventory   |                 | - CameraController |
-                                 +--------------+                 +---------+----------+
-                                                                            | (owns)
-                                                                            v
-                                                                  +--------------------+
-                                                                  |   EntityManager    |
-                                                                  +---------+----------+
-                                                                            | (manages)
-                                                                            v
-                                                       +------------------------------------+
-                                                       | Dynamic Entities Collection        |
-                                                       |                                    |
-                                                       | - std::vector<Destructible>        |
-                                                       | - std::vector<GroundPickup>        |
-                                                       | - std::vector<Npc>                 |
-                                                       |   * has active Quest               |
-                                                       |                                    |
-                                                       | - std::vector<Enemy>               |
-                                                       |   * owns EnemyBehavior (Strategy)  |
-                                                       |   * has EnemyProjectiles (Octorok) |
-                                                       +------------------------------------+
+                              +-------------------+
+                              |     main.cpp      |
+                              +---------+---------+
+                                        |
+                                        v
+                              +-------------------+
+                              |    Game Class     | <--- [Global Engine Loop]
+                              +----+---------+----+
+                                   |         |
+      +----------------------------+         +----------------------------+
+      | (owns & delegates)                                                | (owns)
+      v                                                                   v
++------------------+                                            +--------------------+
+|  SceneManager    | <--- [State Machine]                       |  Global Services   |
++--------+---------+                                            +--------------------+
+         | (owns polymorphic scenes)                            | - EventSystem      |
+         v                                                      | - Database (JSON)  |
+  [ IScene Interface ]                                          +--------------------+
+   - TitleScene
+   - OptionsScene
+   - InventoryScene
+   - GameplayScene
+         | (GameplayScene owns)
+         v
++-------------------+
+|  GameWorld Class  | <--- [Central Orchestrator: delegates gameplay mechanics]
++----+----+----+----+
+     |    |    |
+     |    |    +----------------------------+
+     |    | (owns)                          | (owns & delegates logic)
+     v    v                                 v
++--------------+                 +--------------------+
+|   TileMap    | <--- [Grid]     | Active Subsystems  |
++--------------+                 |                    |
+                                 | - DialogueSystem   |
++--------------+                 | - CombatSystem     |
+|    Player    |                 | - PhysicsSystem    |
++------+-------+                 | - CameraController |
+       | (owns)                  +---------+----------+
+       v                                   | (owns)
++--------------+                           v
+|  Inventory   |                 +--------------------+
++--------------+                 |   EntityManager    |
+                                 +---------+----------+
+                                           | (manages & optimizes)
+                                           v
+                              +------------------------------------+
+                              |  SpatialGrid (Broadphase O(1))     |
+                              +------------------------------------+
+                                           | (owns)
+                                           v
+                              +------------------------------------+
+                              | Dynamic Entities Collection        |
+                              |                                    |
+                              | - std::vector<Destructible>        |
+                              | - std::vector<GroundPickup>        |
+                              | - std::vector<Portal> (Linked)     |
+                              | - std::vector<Npc>                 |
+                              |   * has active Quest               |
+                              |                                    |
+                              | - std::vector<Enemy>               |
+                              |   * owns EnemyBehavior (Strategy)  |
+                              |   * has EnemyProjectiles (Octorok) |
+                              +------------------------------------+
 ```
 ```
 
