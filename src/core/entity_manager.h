@@ -3,6 +3,7 @@
 #include "enemy.h"
 #include "destructible.h"
 #include "ground_pickup.h"
+#include "spatial_grid.h"
 #include <vector>
 #include <raylib.h>
 
@@ -34,6 +35,9 @@ public:
     void AddPickup(GroundPickup&& pickup);
     void AddPortal(Portal&& portal);
 
+    /* Actualise la grille spatiale avec les entités statiques (A appeler après le LoadMap) */
+    void BuildSpatialGrid();
+
     /* Accesseurs pour les sous-systèmes (Combat, Physics, Dialogue) */
     [[nodiscard]] std::vector<Npc>& GetNpcs() { return m_npcs; }
     [[nodiscard]] const std::vector<Npc>& GetNpcs() const { return m_npcs; }
@@ -50,10 +54,14 @@ public:
     [[nodiscard]] std::vector<Portal>& GetPortals() { return m_portals; }
     [[nodiscard]] const std::vector<Portal>& GetPortals() const { return m_portals; }
 
+    [[nodiscard]] const SpatialGrid& GetSpatialGrid() const { return m_spatialGrid; }
+
 private:
     std::vector<Npc> m_npcs;
     std::vector<Enemy> m_enemies;
     std::vector<Destructible> m_destructibles;
     std::vector<GroundPickup> m_pickups;
     std::vector<Portal> m_portals;
+
+    SpatialGrid m_spatialGrid;
 };

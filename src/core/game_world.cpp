@@ -243,6 +243,9 @@ bool GameWorld::LoadMap(const std::string& filePath)
         }
     }
 
+    /* Construit l'index d'optimisation spatiale pour les destructions et collisions */
+    m_entityManager.BuildSpatialGrid();
+
     /* 5. Génération par défaut des PNJ et Ennemis (Fallback si la carte JSON n'en contient pas) */
     if (m_entityManager.GetNpcs().empty() && m_entityManager.GetEnemies().empty())
     {

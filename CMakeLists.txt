@@ -84,6 +84,8 @@ set(CORE_SOURCES
     src/core/combat_system.cpp
     src/core/physics_system.h
     src/core/physics_system.cpp
+    src/core/spatial_grid.h
+    src/core/spatial_grid.cpp
     src/core/camera_controller.h
     src/core/camera_controller.cpp
     src/core/scene.h

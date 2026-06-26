@@ -79,6 +79,15 @@ void EntityManager::Draw() const
     }
 }
 
+void EntityManager::BuildSpatialGrid()
+{
+    m_spatialGrid.Clear();
+    for (auto& dest : m_destructibles)
+    {
+        m_spatialGrid.Insert(&dest);
+    }
+}
+
 void EntityManager::Clear()
 {
     m_npcs.clear();
@@ -86,6 +95,7 @@ void EntityManager::Clear()
     m_destructibles.clear();
     m_pickups.clear();
     m_portals.clear();
+    m_spatialGrid.Clear();
 }
 
 void EntityManager::AddNpc(Npc&& npc)
