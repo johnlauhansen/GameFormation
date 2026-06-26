@@ -1,5 +1,5 @@
 #include <raylib.h>
-#include "core/player.h"
+#include "core/player/player.h"
 #include "core/game_world.h"
 #include <cmath>
 #include <filesystem>
