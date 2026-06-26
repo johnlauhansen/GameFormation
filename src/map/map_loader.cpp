@@ -74,9 +74,28 @@ std::optional<MapLevel> MapLoader::LoadFromJson(const std::string& filePath)
                         for (const auto& prop : obj.at("properties"))
                         {
                             std::string propName = prop.at("name").get<std::string>();
+                            
+                            /* Extraction générique de la propriété en string vers le dictionnaire */
+                            std::string propValueStr;
+                            if (prop.at("value").is_string())
+                            {
+                                propValueStr = prop.at("value").get<std::string>();
+                            }
+                            else if (prop.at("value").is_number_integer() || prop.at("value").is_boolean())
+                            {
+                                propValueStr = std::to_string(prop.at("value").get<int>());
+                            }
+                            else if (prop.at("value").is_number_float())
+                            {
+                                propValueStr = std::to_string(prop.at("value").get<float>());
+                            }
+                            
+                            spawn.properties[propName] = propValueStr;
+
+                            /* Mappage direct pour rétrocompatibilité avec l'ancien système de spawn dur */
                             if (propName == "itemId")
                             {
-                                spawn.itemId = prop.at("value").get<std::string>();
+                                spawn.itemId = propValueStr;
                             }
                             else if (propName == "targetMapId")
                             {

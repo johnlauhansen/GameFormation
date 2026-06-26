@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <unordered_map>
 #include <raylib.h>
 
 /*
@@ -17,6 +18,18 @@ struct EntitySpawnInfo
     int targetMapId = 0;              /* ID de la carte de destination pour un téléporteur */
     Vector2 targetSpawn = { 0.0f, 0.0f }; /* Coordonnées de spawn sur la carte de destination */
     std::string itemId = "";          /* ID de l'objet contenu dans un coffre ou disponible au sol */
+
+    /* Extension Data-Driven : Attributs libres définis dans Tiled */
+    std::unordered_map<std::string, std::string> properties;
+
+    /* Méthode utilitaire : retourne une propriété ou une chaîne vide par défaut */
+    [[nodiscard]] std::string GetProperty(const std::string& key, const std::string& defaultVal = "") const
+    {
+        auto it = properties.find(key);
+        if (it != properties.end())
+            return it->second;
+        return defaultVal;
+    }
 };
 
 /*

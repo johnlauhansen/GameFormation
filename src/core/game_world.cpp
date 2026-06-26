@@ -105,26 +105,10 @@ bool GameWorld::LoadMap(const std::string& filePath)
         return pos;
     };
 
-    /* 4. Génération des objets destructibles (mélange de spawner dynamique et d'objets Tiled) */
-    Vector2 crate1Pos = findSafeSpawn({ spawnPos.x - 40.0f, spawnPos.y + 40.0f }, 32.0f, 32.0f);
-    Destructible crate1(DestructibleType::Crate, crate1Pos);
-    
-    Vector2 plant1Pos = findSafeSpawn({ spawnPos.x + 40.0f, spawnPos.y + 40.0f }, 32.0f, 32.0f);
-    Destructible plant1(DestructibleType::Plant, plant1Pos);
-    
-    Vector2 customObjPos = findSafeSpawn({ spawnPos.x, spawnPos.y - 60.0f }, 32.0f, 32.0f);
-    Destructible customObj(DestructibleType::Custom, customObjPos);
-    customObj.AddVulnerableDamageType(DamageType::Blunt);
-    customObj.AddVulnerableElement(ElementType::Fire);
-    customObj.SetMaxHealth(50.0f);
-
-    m_entityManager.AddDestructible(std::move(crate1));
-    m_entityManager.AddDestructible(std::move(plant1));
-    m_entityManager.AddDestructible(std::move(customObj));
-
-    // Chargement dynamique depuis le fichier de carte Tiled JSON (Data-Driven)
+    /* 4. Génération des objets destructibles, PNJs, et Ennemis depuis les métadonnées (Data-Driven) */
     for (const auto& spawn : levelOpt.value().spawns)
     {
+        /* --- Destructibles --- */
         if (spawn.type == "Crate" || spawn.subType == "Crate")
         {
             m_entityManager.AddDestructible(Destructible(DestructibleType::Crate, spawn.position));
@@ -141,69 +125,153 @@ bool GameWorld::LoadMap(const std::string& filePath)
             custom.SetMaxHealth(50.0f);
             m_entityManager.AddDestructible(std::move(custom));
         }
+        /* --- PNJs --- */
+        else if (spawn.type == "Npc")
+        {
+            std::string npcTypeStr = spawn.GetProperty("npc_type", "Villager");
+            std::string npcName = spawn.GetProperty("name", "Villageois Anonyme");
+            
+            NpcType npcType = NpcType::Villager;
+            if (npcTypeStr == "QuestGiver") npcType = NpcType::QuestGiver;
+            else if (npcTypeStr == "Merchant") npcType = NpcType::Merchant;
+
+            Vector2 safePos = findSafeSpawn(spawn.position, 32.0f, 32.0f);
+            Npc npc(npcName, npcType, safePos);
+
+            /* Configuration du mouvement depuis JSON */
+            std::string movementStr = spawn.GetProperty("movement", "Static");
+            if (movementStr == "PatrolZone")
+            {
+                float radius = std::stof(spawn.GetProperty("patrol_radius", "100"));
+                float speed = std::stof(spawn.GetProperty("patrol_speed", "40"));
+                npc.SetPatrolZone(radius, speed);
+            }
+            else
+            {
+                npc.SetStatic();
+            }
+
+            /* Configuration des dialogues personnalisés depuis JSON */
+            std::vector<std::string> dialogues;
+            for (int i = 1; i <= 5; ++i)
+            {
+                std::string line = spawn.GetProperty("dialogue" + std::to_string(i), "");
+                if (!line.empty()) dialogues.push_back(line);
+            }
+            if (!dialogues.empty())
+            {
+                npc.SetDefaultDialogues(dialogues);
+            }
+
+            /* Configuration des quêtes depuis JSON */
+            if (npcType == NpcType::QuestGiver)
+            {
+                std::string questId = spawn.GetProperty("quest_id", "");
+                if (!questId.empty())
+                {
+                    std::string desc = spawn.GetProperty("quest_desc", "Quête mystère");
+                    int kills = std::stoi(spawn.GetProperty("quest_req_kills", "5"));
+                    int rupees = std::stoi(spawn.GetProperty("quest_rew_rupees", "50"));
+                    int pts = std::stoi(spawn.GetProperty("quest_rew_points", "1"));
+                    npc.ConfigureQuest(questId, desc, kills, rupees, pts);
+                }
+            }
+
+            /* Note: Pour un jeu complet on lirait le catalogue du marchand en JSON, ici on hardcode le catalogue par défaut si marchand */
+            if (npcType == NpcType::Merchant)
+            {
+                npc.AddMerchantItem("heal_potion", "Potion de Sante", 10, "Restaure completement vos coeurs.");
+                npc.AddMerchantItem("forge_point", "Infu de Point de Forge", 25, "Ajoute 1 point de forge precieux.");
+                npc.AddMerchantItem("boomerang", "Boomerang d'acier", 40, "Arme de jet rotative secondaire.");
+            }
+
+            m_entityManager.AddNpc(std::move(npc));
+        }
+        /* --- Ennemis --- */
+        else if (spawn.type == "Enemy")
+        {
+            std::string enemyTypeStr = spawn.GetProperty("enemy_type", "Slime");
+            std::string enemyName = spawn.GetProperty("name", enemyTypeStr);
+            
+            EnemyType enemyType = EnemyType::Slime;
+            if (enemyTypeStr == "Octorok") enemyType = EnemyType::Octorok;
+            else if (enemyTypeStr == "Moblin") enemyType = EnemyType::Moblin;
+
+            Vector2 safePos = findSafeSpawn(spawn.position, 32.0f, 32.0f);
+            Enemy enemy(enemyName, enemyType, safePos);
+
+            /* Configuration du mouvement depuis JSON */
+            std::string movementStr = spawn.GetProperty("movement", "PatrolZone");
+            if (movementStr == "Static")
+            {
+                enemy.SetStatic();
+            }
+            else if (movementStr == "PatrolZone")
+            {
+                float radius = std::stof(spawn.GetProperty("patrol_radius", "80"));
+                float speed = std::stof(spawn.GetProperty("patrol_speed", "50"));
+                enemy.SetPatrolZone(radius, speed);
+            }
+            // (La lecture des Waypoints pour DefinedPath pourrait être ajoutée de la même manière)
+
+            m_entityManager.AddEnemy(std::move(enemy));
+        }
     }
 
-    /* 5. Désactivation de tout boomerang actif */
-    m_boomerang = BoomerangProjectile();
+    /* 5. Génération par défaut des PNJ et Ennemis (Fallback si la carte JSON n'en contient pas) */
+    if (m_entityManager.GetNpcs().empty() && m_entityManager.GetEnemies().empty())
+    {
+        // Un villageois sympathique qui patrouille
+        Vector2 villagerPos = findSafeSpawn({ spawnPos.x - 120.0f, spawnPos.y + 120.0f }, 32.0f, 32.0f);
+        Npc villager("Jean le Villageois", NpcType::Villager, villagerPos);
+        villager.SetPatrolZone(100.0f, 40.0f);
+        m_entityManager.AddNpc(std::move(villager));
 
-    /* 6. Génération des PNJ */
-    // Un villageois sympathique qui patrouille
-    Vector2 villagerPos = findSafeSpawn({ spawnPos.x - 120.0f, spawnPos.y + 120.0f }, 32.0f, 32.0f);
-    Npc villager("Jean le Villageois", NpcType::Villager, villagerPos);
-    villager.SetPatrolZone(100.0f, 40.0f);
-    m_entityManager.AddNpc(std::move(villager));
+        // Un donneur de quête statique à côté des caisses
+        Vector2 questGiverPos = findSafeSpawn({ spawnPos.x + 160.0f, spawnPos.y - 80.0f }, 32.0f, 32.0f);
+        Npc questGiver("Bucheron Bourru", NpcType::QuestGiver, questGiverPos);
+        questGiver.SetStatic();
+        questGiver.ConfigureQuest("crate_hunt", "Detruire les caisses encombrantes", 5, 80, 2);
+        m_entityManager.AddNpc(std::move(questGiver));
 
-    // Un donneur de quête statique à côté des caisses
-    Vector2 questGiverPos = findSafeSpawn({ spawnPos.x + 160.0f, spawnPos.y - 80.0f }, 32.0f, 32.0f);
-    Npc questGiver("Bucheron Bourru", NpcType::QuestGiver, questGiverPos);
-    questGiver.SetStatic();
-    questGiver.ConfigureQuest("crate_hunt", "Detruire les caisses encombrantes", 5, 80, 2);
-    m_entityManager.AddNpc(std::move(questGiver));
+        // Un marchand ambulant avec des objets à vendre
+        Vector2 merchantPos = findSafeSpawn({ spawnPos.x - 180.0f, spawnPos.y - 120.0f }, 32.0f, 32.0f);
+        Npc merchant("Marchand Ambulant", NpcType::Merchant, merchantPos);
+        merchant.SetStatic();
+        merchant.AddMerchantItem("heal_potion", "Potion de Sante", 10, "Restaure completement vos coeurs.");
+        merchant.AddMerchantItem("forge_point", "Infu de Point de Forge", 25, "Ajoute 1 point de forge precieux.");
+        merchant.AddMerchantItem("boomerang", "Boomerang d'acier", 40, "Arme de jet rotative secondaire.");
+        m_entityManager.AddNpc(std::move(merchant));
 
-    // Un marchand ambulant avec des objets à vendre
-    Vector2 merchantPos = findSafeSpawn({ spawnPos.x - 180.0f, spawnPos.y - 120.0f }, 32.0f, 32.0f);
-    Npc merchant("Marchand Ambulant", NpcType::Merchant, merchantPos);
-    merchant.SetStatic();
-    merchant.AddMerchantItem("heal_potion", "Potion de Sante", 10, "Restaure completement vos coeurs.");
-    merchant.AddMerchantItem("forge_point", "Infu de Point de Forge", 25, "Ajoute 1 point de forge precieux.");
-    merchant.AddMerchantItem("boomerang", "Boomerang d'acier", 40, "Arme de jet rotative secondaire.");
-    m_entityManager.AddNpc(std::move(merchant));
+        // Quelques Slimes patrouilleurs
+        Vector2 slime1Pos = findSafeSpawn({ spawnPos.x + 200.0f, spawnPos.y + 200.0f }, 32.0f, 32.0f);
+        Enemy slime1("Slime Vert", EnemyType::Slime, slime1Pos);
+        slime1.SetPatrolZone(80.0f, 50.0f);
+        m_entityManager.AddEnemy(std::move(slime1));
 
-    /* 7. Génération des Ennemis */
-    // Quelques Slimes patrouilleurs
-    Vector2 slime1Pos = findSafeSpawn({ spawnPos.x + 200.0f, spawnPos.y + 200.0f }, 32.0f, 32.0f);
-    Enemy slime1("Slime Vert", EnemyType::Slime, slime1Pos);
-    slime1.SetPatrolZone(80.0f, 50.0f);
-    m_entityManager.AddEnemy(std::move(slime1));
+        Vector2 slime2Pos = findSafeSpawn({ spawnPos.x - 200.0f, spawnPos.y + 250.0f }, 32.0f, 32.0f);
+        Enemy slime2("Slime Agile", EnemyType::Slime, slime2Pos);
+        slime2.SetPatrolZone(60.0f, 70.0f);
+        m_entityManager.AddEnemy(std::move(slime2));
 
-    Vector2 slime2Pos = findSafeSpawn({ spawnPos.x - 200.0f, spawnPos.y + 250.0f }, 32.0f, 32.0f);
-    Enemy slime2("Slime Agile", EnemyType::Slime, slime2Pos);
-    slime2.SetPatrolZone(60.0f, 70.0f);
-    m_entityManager.AddEnemy(std::move(slime2));
+        // Un Octorok à distance
+        Vector2 octorokPos = findSafeSpawn({ spawnPos.x + 300.0f, spawnPos.y - 150.0f }, 32.0f, 32.0f);
+        Enemy octorok("Octorok Rouge", EnemyType::Octorok, octorokPos);
+        octorok.SetPatrolZone(50.0f, 30.0f);
+        m_entityManager.AddEnemy(std::move(octorok));
 
-    // Un Octorok à distance
-    Vector2 octorokPos = findSafeSpawn({ spawnPos.x + 300.0f, spawnPos.y - 150.0f }, 32.0f, 32.0f);
-    Enemy octorok("Octorok Rouge", EnemyType::Octorok, octorokPos);
-    octorok.SetPatrolZone(50.0f, 30.0f);
-    m_entityManager.AddEnemy(std::move(octorok));
-
-    // Un Moblin d'élite patrouillant sur un chemin défini
-    Vector2 moblinPos = findSafeSpawn({ spawnPos.x - 250.0f, spawnPos.y - 200.0f }, 36.0f, 36.0f);
-    Enemy moblin("Moblin de Garde", EnemyType::Moblin, moblinPos);
-    std::vector<Vector2> moblinWaypoints = {
-        moblinPos,
-        { moblinPos.x + 150.0f, moblinPos.y },
-        { moblinPos.x + 150.0f, moblinPos.y - 150.0f },
-        { moblinPos.x, moblinPos.y - 150.0f }
-    };
-    moblin.SetDefinedPath(moblinWaypoints, 60.0f);
-    m_entityManager.AddEnemy(std::move(moblin));
-
-    m_playerHitCooldown = 0.0f;
-
-    m_hud.Reset();
-
-    return true;
+        // Un Moblin d'élite patrouillant sur un chemin défini
+        Vector2 moblinPos = findSafeSpawn({ spawnPos.x - 250.0f, spawnPos.y - 200.0f }, 36.0f, 36.0f);
+        Enemy moblin("Moblin de Garde", EnemyType::Moblin, moblinPos);
+        std::vector<Vector2> moblinWaypoints = {
+            moblinPos,
+            { moblinPos.x + 150.0f, moblinPos.y },
+            { moblinPos.x + 150.0f, moblinPos.y - 150.0f },
+            { moblinPos.x, moblinPos.y - 150.0f }
+        };
+        moblin.SetDefinedPath(moblinWaypoints, 60.0f);
+        m_entityManager.AddEnemy(std::move(moblin));
+    }
 
     m_playerHitCooldown = 0.0f;
 
