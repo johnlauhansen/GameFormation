@@ -44,18 +44,37 @@ Ouvrez ce dossier dans VS Code. Il vous proposera automatiquement d'installer le
 
 Grâce à **CMake** et sa fonctionnalité `FetchContent` configurée dans ce projet, **vous n'avez rien à installer manuellement !** Raylib sera téléchargé, configuré et compilé statiquement de manière transparente lors du premier build.
 
-### Étape par étape :
+### Étape par étape avec Visual Studio Code :
 1. **Ouvrir le dossier dans VS Code** : `C:\GIT\Formation\gameFormation`
 2. **Sélectionner un "Kit" (Compilateur)** :
-   - En bas dans la barre d'état de VS Code (ou via la commande `Ctrl+Shift+P` -> `CMake: Select a Kit`), choisissez votre compilateur.
+   - En bas dans la barre d'état de VS Code (ou via `Ctrl+Shift+P` -> `CMake: Select a Kit`), choisissez votre compilateur.
    - Sélectionnez par exemple **Visual Studio Community 2022 Release - amd64** (ou similaire).
-3. **Configurer le projet** :
-   - CMake va s'exécuter automatiquement. Il va télécharger Raylib et générer les fichiers de build dans le dossier `/build`.
+3. **Sélectionner la cible active** :
+   - Le projet définit deux cibles exécutables :
+     *   `gameFormation` : Le jeu principal (village RPG, quêtes, marchands et combats).
+     *   `gameplay_sandbox` : Le bac à sable expérimental (moteur physique de boomerang).
+   - Dans la barre d'état tout en bas de VS Code, cliquez sur l'icône de cible à côté de "Build" (ou via `Ctrl+Shift+P` -> `CMake: Set Debug Target`) et choisissez votre cible active.
 4. **Compiler** :
-   - Cliquez sur **Build** dans la barre d'état tout en bas (ou faites `F7`).
-5. **Lancer le jeu** :
-   - Cliquez sur le bouton **Play (Launch)** dans la barre d'état (ou faites `Shift+F5` ou configurez un raccourci).
-   - Une fenêtre OpenGL va s'ouvrir avec une balle rouge que vous pouvez déplacer avec les flèches du clavier !
+   - Cliquez sur **Build** dans la barre d'état tout en bas (ou faites `F7` ou via `Ctrl+Shift+P` -> `CMake: Build`).
+5. **Lancer ou déboguer** :
+   - **Lancement direct (sans débogueur)** : Cliquez sur le bouton **Play (Launch)** dans la barre d'état tout en bas (ou faites `Ctrl+F5`).
+   - **Débogage pas à pas (avec débogueur)** : Cliquez sur l'icône de **Coccinelle (Debug)** dans la barre d'état (ou faites `F5` pour compiler et démarrer une session de débogage MSVC complète).
+
+---
+
+### Étape par étape avec Visual Studio (IDEE Complète) :
+Comme vous êtes développeur C#, vous pouvez également ouvrir et exécuter ce projet directement dans l'IDEE de bureau de Visual Studio (sans aucun fichier `.sln` ou `.csproj` !) grâce au support CMake natif :
+1. **Ouvrir le projet** :
+   - Ouvrez **Visual Studio**, allez dans **Fichier** -> **Ouvrir** -> **Dossier...** (ou *Open Local Folder*).
+   - Sélectionnez le dossier racine du projet `C:\GIT\Formation\gameFormation`.
+2. **Configuration automatique** :
+   - Visual Studio détecte immédiatement le fichier `CMakeLists.txt` racine et démarre la génération du cache CMake (visible dans la fenêtre de sortie). Il va télécharger automatiquement Raylib et nlohmann/json.
+3. **Sélectionner la cible de démarrage** :
+   - Dans la barre d'outils supérieure de Visual Studio, à côté du bouton de démarrage vert (Play), cliquez sur le menu déroulant de sélection d'élément de démarrage (Startup Item).
+   - Choisissez l'exécutable souhaité : **`gameFormation.exe`** ou **`gameplay_sandbox.exe`**.
+4. **Lancer le jeu** :
+   - Cliquez sur le bouton de démarrage vert **"Démarrer"** (ou faites `F5` pour compiler et lancer en mode débogage, ou `Ctrl+F5` pour lancer sans débogage).
+   - Visual Studio compilera les fichiers modifiés et affichera instantanément la fenêtre OpenGL du jeu !
 
 ---
 

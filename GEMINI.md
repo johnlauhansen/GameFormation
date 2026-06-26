@@ -45,11 +45,14 @@ gameFormation/
 │   │   ├── player.h/.cpp       # Player: movement, animations, attack hitbox scaling
 │   │   ├── inventory.h         # Item & Inventory systems, spent points, Wide Enums
 │   │   ├── npc.h/.cpp          # NPCs: Dialogue, Quest, and Merchant systems
-│   │   ├── enemy.h/.cpp         # Enemies: Slime, Octorok, Moblin and projectile shooting
-│   │   ├── dialogue_system.h/.cpp # DialogueSystem: sequence speech, merchant shop UI & inputs
+│   │   ├── enemy.h/.cpp        # Enemies: Context class holding stats and active projectiles
+│   │   ├── enemy_behavior.h/.cpp # Enemy behaviors: SlimeBehavior, OctorokBehavior, MoblinBehavior (Strategy Pattern)
+│   │   ├── entity_manager.h/.cpp # EntityManager: owns, updates, draws and clears all active entities
+│   │   ├── dialogue_system.h/.cpp # DialogueSystem: sequences speech, merchant shop UI & keyboard inputs
 │   │   ├── combat_system.h/.cpp   # CombatSystem: sword/boomerang physics, damage resolution
 │   │   ├── physics_system.h/.cpp  # PhysicsSystem: players sliding collision checks & tile glides
-│   │   ├── game_world.h/.cpp   # GameWorld: camera, entities, and ground pickups resolver
+│   │   ├── camera_controller.h/.cpp # CameraController: encapsulates Camera2D and lerp-smoothed target tracking
+│   │   ├── game_world.h/.cpp   # GameWorld: main orchestrator managing scenes and camera-view setups
 │   │   └── game.h/.cpp         # Main Game: screens state machine (Title, Game, Options)
 │   │
 │   ├── map/               # MAP AND RENDERING MODULES
@@ -79,11 +82,11 @@ Below is the structured relational class layout of **gameFormation**, outlining 
                                          | (owns & updates)
                                          v
                                +-------------------+
-                               |  GameWorld Class  | <--- [Central Orchestrator: camera & entities]
+                               |  GameWorld Class  | <--- [Central Orchestrator: delegates all actions]
                                +----+----+----+----+
                                     |    |    |
        +----------------------------+    |    +----------------------------+
-       | (owns)                          | (owns)                          | (delegates updates)
+       | (owns)                          | (owns)                          | (owns & delegates)
        v                                 v                                 v
 +--------------+                 +--------------+                 +--------------------+
 |   TileMap    | <--- [Grid]     |    Player    |                 | Active Subsystems  |
@@ -91,32 +94,28 @@ Below is the structured relational class layout of **gameFormation**, outlining 
                                         | (owns)                  | - DialogueSystem   |
                                         v                         | - CombatSystem     |
                                  +--------------+                 | - PhysicsSystem    |
-                                 |  Inventory   |                 +--------------------+
-                                 +--------------+
-
-                               +-------------------+
-                               |  GameWorld Class  |
-                               +----+----+---------+
-                                    |    |
-      +-----------------------------+    +-----------------------------+
-      | (owns & updates dynamic collections)                           | (owns screen-space status overlay)
-      v                                                                v
-+----------------------------------------------------+          +--------------+
-| Dynamic Game Entities & Pickups                    |          |     HUD      | <--- [Displays hearts, magic meter,
-|                                                    |          +--------------+       rupees & dynamic notifications]
-|  - std::vector<Destructible> (Crates, Plants, ...) |
-|  - std::vector<GroundPickup> (Rupees, Weapons)     |
-|  - BoomerangProjectile (Player active projectile)  |
-|                                                    |
-|  - std::vector<Npc> -------------------------------+----> [Npc Components]
-|    * Villager, QuestGiver, Merchant                |      - Dialogue seq state-machine
-|    * Static, PatrolZone, or DefinedPath movement   |      - Active Quest (Crate hunts progress)
-|                                                    |      - Merchant Catalog (potion, points, items)
-|                                                    |
-|  - std::vector<Enemy> -----------------------------+----> [Enemy Projectiles]
-|    * Slime, Octorok, Moblin                        |      - Active stone projectiles fired
-|    * Static, PatrolZone, or DefinedPath movement   |        periodically by Octoroks
-+----------------------------------------------------+
+                                 |  Inventory   |                 | - CameraController |
+                                 +--------------+                 +---------+----------+
+                                                                            | (owns)
+                                                                            v
+                                                                  +--------------------+
+                                                                  |   EntityManager    |
+                                                                  +---------+----------+
+                                                                            | (manages)
+                                                                            v
+                                                       +------------------------------------+
+                                                       | Dynamic Entities Collection        |
+                                                       |                                    |
+                                                       | - std::vector<Destructible>        |
+                                                       | - std::vector<GroundPickup>        |
+                                                       | - std::vector<Npc>                 |
+                                                       |   * has active Quest               |
+                                                       |                                    |
+                                                       | - std::vector<Enemy>               |
+                                                       |   * owns EnemyBehavior (Strategy)  |
+                                                       |   * has EnemyProjectiles (Octorok) |
+                                                       +------------------------------------+
+```
 ```
 
 ---
