@@ -48,6 +48,21 @@ public:
      */
     [[nodiscard]] Vector2 ResolveCollision(Vector2 currentPos, Vector2 oldPos, float width, float height) const;
 
+    [[nodiscard]] int GetWidth() const
+    {
+        return m_width;
+    }
+
+    [[nodiscard]] int GetHeight() const
+    {
+        return m_height;
+    }
+
+    [[nodiscard]] const std::vector<bool>& GetCollisions() const
+    {
+        return m_collisions;
+    }
+
 private:
     /*
      * Convertit des coordonnées (X, Y) d'une grille 2D en index de tableau linéaire 1D.

@@ -57,7 +57,11 @@ std::vector<std::string> GetSandboxMaps(void)
 void UpdateSandboxInventoryMenu(Player& player)
 {
     Inventory& inv = player.GetInventory();
-    const Vector2 mousePos = GetMousePosition();
+    const Vector2 rawMousePos = GetMousePosition();
+    const Vector2 mousePos = {
+        rawMousePos.x * (800.0f / GetScreenWidth()),
+        rawMousePos.y * (600.0f / GetScreenHeight())
+    };
 
     if (inv.m_upgradePoints > 0)
     {
@@ -127,7 +131,11 @@ void UpdateSandboxInventoryMenu(Player& player)
 void DrawSandboxInventoryMenu(const Player& player)
 {
     const Inventory& inv = player.GetInventory();
-    const Vector2 mousePos = GetMousePosition();
+    const Vector2 rawMousePos = GetMousePosition();
+    const Vector2 mousePos = {
+        rawMousePos.x * (800.0f / GetScreenWidth()),
+        rawMousePos.y * (600.0f / GetScreenHeight())
+    };
 
     Rectangle panel = { 100, 50, 600, 500 };
     DrawRectangleRec(panel, { 10, 15, 25, 255 });
@@ -256,9 +264,16 @@ void DrawSandboxInventoryMenu(const Player& player)
 
 int main(void)
 {
-    const int screenWidth = 800;
-    const int screenHeight = 600;
+    /* Activer la fenêtre redimensionnable */
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+
+    /* Initialisation de la fenêtre réelle (adaptée pour écran 15 pouces) */
+    const int screenWidth = 1600;
+    const int screenHeight = 1200;
     InitWindow(screenWidth, screenHeight, "gameFormation - Sandbox Gameplay : Boomerang Prototype");
+
+    /* Écran virtuel interne de 800x600 pour la mise à l'échelle retro */
+    RenderTexture2D target = LoadRenderTexture(800, 600);
 
     GameWorld sandboxWorld;
 
@@ -296,11 +311,15 @@ int main(void)
                 }
             }
 
-            const Vector2 mousePos = GetMousePosition();
+            const Vector2 rawMousePos = GetMousePosition();
+            const Vector2 mousePos = {
+                rawMousePos.x * (800.0f / GetScreenWidth()),
+                rawMousePos.y * (600.0f / GetScreenHeight())
+            };
             for (size_t i = 0; i < availableMaps.size(); ++i)
             {
                 Rectangle optionRect = {
-                    (float)screenWidth / 2.0f - 200.0f,
+                    (float)800.0f / 2.0f - 200.0f,
                     200.0f + (float)i * 50.0f,
                     400.0f,
                     40.0f
@@ -333,23 +352,24 @@ int main(void)
                 }
             }
 
-            BeginDrawing();
+            /* Rendu de l'écran de sélection de carte sur la texture virtuelle */
+            BeginTextureMode(target);
             ClearBackground({ 10, 20, 30, 255 });
 
-            DrawText("BAC A SABLE GAMEPLAY - CHOIX DE LA MAP", screenWidth / 2 - MeasureText("BAC A SABLE GAMEPLAY - CHOIX DE LA MAP", 20) / 2, 80, 20, SKYBLUE);
-            DrawText("Veuillez selectionner une carte .json pour lancer le sandbox :", screenWidth / 2 - MeasureText("Veuillez selectionner une carte .json pour lancer le sandbox :", 14) / 2, 130, 14, LIGHTGRAY);
+            DrawText("BAC A SABLE GAMEPLAY - CHOIX DE LA MAP", 800 / 2 - MeasureText("BAC A SABLE GAMEPLAY - CHOIX DE LA MAP", 20) / 2, 80, 20, SKYBLUE);
+            DrawText("Veuillez selectionner une carte .json pour lancer le sandbox :", 800 / 2 - MeasureText("Veuillez selectionner une carte .json pour lancer le sandbox :", 14) / 2, 130, 14, LIGHTGRAY);
 
             if (availableMaps.empty())
             {
                 const std::string errorText = "Aucune carte trouvee dans " + g_mapsPathRoot;
-                DrawText(errorText.c_str(), screenWidth / 2 - MeasureText(errorText.c_str(), 14) / 2, 250, 14, RED);
+                DrawText(errorText.c_str(), 800 / 2 - MeasureText(errorText.c_str(), 14) / 2, 250, 14, RED);
             }
             else
             {
                 for (size_t i = 0; i < availableMaps.size(); ++i)
                 {
                     Rectangle optionRect = {
-                        (float)screenWidth / 2.0f - 200.0f,
+                        (float)800.0f / 2.0f - 200.0f,
                         200.0f + (float)i * 50.0f,
                         400.0f,
                         40.0f
@@ -378,8 +398,8 @@ int main(void)
                 }
             }
 
-            DrawText("ZQSD / Fleches : Naviguer, Entree / Clic : Charger la carte", screenWidth / 2 - MeasureText("ZQSD / Fleches : Naviguer, Entree / Clic : Charger la carte", 11) / 2, screenHeight - 60, 11, GRAY);
-            EndDrawing();
+            DrawText("ZQSD / Fleches : Naviguer, Entree / Clic : Charger la carte", 800 / 2 - MeasureText("ZQSD / Fleches : Naviguer, Entree / Clic : Charger la carte", 11) / 2, 600 - 60, 11, GRAY);
+            EndTextureMode();
         }
         else
         {
@@ -417,8 +437,8 @@ int main(void)
                 }
             }
 
-            /* Rendu */
-            BeginDrawing();
+            /* Rendu du jeu sandbox sur la texture virtuelle */
+            BeginTextureMode(target);
             ClearBackground(DARKBLUE);
 
             /* Le rendu de la carte, des objets, des destructibles, du joueur et du boomerang est centralisé ! */
@@ -427,7 +447,7 @@ int main(void)
             /* Si l'inventaire de la forge est ouvert, on le dessine par-dessus */
             if (isInventoryOpen)
             {
-                DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.82f));
+                DrawRectangle(0, 0, 800, 600, Fade(BLACK, 0.82f));
                 DrawSandboxInventoryMenu(sandboxWorld.GetPlayer());
             }
             else
@@ -444,13 +464,24 @@ int main(void)
                 DrawText("Touche [ I ] / [ SELECT ] : Ouvrir la FORGE & AMELIORATIONS", 20, 122, 11, SKYBLUE);
                 DrawText("Touche [ ECHAP ] : Choisir une autre carte", 20, 137, 11, YELLOW);
 
-                DrawFPS(screenWidth - 100, 10);
+                DrawFPS(800 - 100, 10);
             }
-
-            EndDrawing();
+            EndTextureMode();
         }
+
+        /* Rendu final : Mise à l'échelle sur l'écran réel */
+        BeginDrawing();
+        ClearBackground(BLACK);
+        DrawTexturePro(target.texture,
+                       Rectangle{ 0.0f, 0.0f, (float)target.texture.width, -(float)target.texture.height },
+                       Rectangle{ 0.0f, 0.0f, (float)GetScreenWidth(), (float)GetScreenHeight() },
+                       Vector2{ 0.0f, 0.0f },
+                       0.0f,
+                       WHITE);
+        EndDrawing();
     }
 
+    UnloadRenderTexture(target);
     CloseWindow();
     return 0;
 }

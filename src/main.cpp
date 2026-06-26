@@ -3,9 +3,12 @@
 
 int main(void)
 {
-    /* Initialisation de la fenêtre globale de l'application */
-    const int screenWidth = 800;
-    const int screenHeight = 600;
+    /* Configuration des drapeaux de fenêtre (redimensionnable) */
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+
+    /* Initialisation de la fenêtre globale de l'application adaptée pour un écran 15 pouces */
+    const int screenWidth = 1600;
+    const int screenHeight = 1200;
     InitWindow(screenWidth, screenHeight, "gameFormation - Le Jeu Zelda 2D");
     SetTargetFPS(60);
 

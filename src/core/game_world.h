@@ -53,6 +53,11 @@ public:
     }
 
 private:
+    void DrawHUD() const;
+    void DrawHeart(float x, float y, float size, float fillPercent) const;
+    void DrawEquippedItemBox(float x, float y, const std::string& label, const std::string& itemId, const std::string& keyName) const;
+    void DrawMiniMap(float x, float y, float w, float h) const;
+
     TileMap m_tileMap;
     Player m_player;
     Camera2D m_camera;

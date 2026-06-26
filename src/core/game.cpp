@@ -12,10 +12,12 @@ Game::Game()
     , m_controlsShown(true)
     , m_isInventoryOpen(false)
 {
+    m_target = LoadRenderTexture(kScreenWidth, kScreenHeight);
 }
 
 Game::~Game()
 {
+    UnloadRenderTexture(m_target);
 }
 
 void Game::Run()
@@ -52,7 +54,7 @@ void Game::Update(float deltaTime)
 
 void Game::Draw() const
 {
-    BeginDrawing();
+    BeginTextureMode(m_target);
     ClearBackground(BLACK);
 
     switch (m_currentScreen)
@@ -73,6 +75,19 @@ void Game::Draw() const
             break;
         }
     }
+
+    EndTextureMode();
+
+    BeginDrawing();
+    ClearBackground(BLACK);
+
+    /* Dessiner l'écran virtuel de 800x600 étiré sur la fenêtre réelle avec mise à l'échelle pixel-perfect */
+    DrawTexturePro(m_target.texture,
+                   Rectangle{ 0.0f, 0.0f, (float)m_target.texture.width, -(float)m_target.texture.height },
+                   Rectangle{ 0.0f, 0.0f, (float)GetScreenWidth(), (float)GetScreenHeight() },
+                   Vector2{ 0.0f, 0.0f },
+                   0.0f,
+                   WHITE);
 
     EndDrawing();
 }
@@ -107,7 +122,11 @@ void Game::UpdateTitleScreen(float deltaTime)
     }
 
     /* 2. Souris (Hover et Sélection) */
-    const Vector2 mousePos = GetMousePosition();
+    const Vector2 rawMousePos = GetMousePosition();
+    const Vector2 mousePos = {
+        rawMousePos.x * (800.0f / GetScreenWidth()),
+        rawMousePos.y * (600.0f / GetScreenHeight())
+    };
     for (int i = 0; i < totalOptions; ++i)
     {
         Rectangle optionRect = {
@@ -324,7 +343,11 @@ void Game::UpdateOptionsScreen(float deltaTime)
         m_soundVolumePercent = (m_soundVolumePercent < 100) ? (m_soundVolumePercent + 10) : 100;
     }
 
-    const Vector2 mousePos = GetMousePosition();
+    const Vector2 rawMousePos = GetMousePosition();
+    const Vector2 mousePos = {
+        rawMousePos.x * (800.0f / GetScreenWidth()),
+        rawMousePos.y * (600.0f / GetScreenHeight())
+    };
     Rectangle backRect = { (float)kScreenWidth / 2.0f - 100.0f, (float)kScreenHeight - 100.0f, 200.0f, 40.0f };
     if (CheckCollisionPointRec(mousePos, backRect))
     {
@@ -357,7 +380,12 @@ void Game::DrawOptionsScreen() const
     DrawText("- Quitter une partie en cours : Touche ECHAP / Bouton START", 150, 390, 14, LIGHTGRAY);
 
     Rectangle backRect = { (float)kScreenWidth / 2.0f - 100.0f, (float)kScreenHeight - 100.0f, 200.0f, 40.0f };
-    const bool isHovered = CheckCollisionPointRec(GetMousePosition(), backRect);
+    const Vector2 rawMouse = GetMousePosition();
+    const Vector2 mappedMouse = {
+        rawMouse.x * (800.0f / GetScreenWidth()),
+        rawMouse.y * (600.0f / GetScreenHeight())
+    };
+    const bool isHovered = CheckCollisionPointRec(mappedMouse, backRect);
     
     DrawRectangleRec(backRect, isHovered ? GRAY : Color{ 20, 20, 20, 255 });
     DrawRectangleLinesEx(backRect, 1.5f, isHovered ? WHITE : GREEN);
@@ -367,7 +395,11 @@ void Game::DrawOptionsScreen() const
 void Game::UpdateInventoryMenu(Player& player)
 {
     Inventory& inv = player.GetInventory();
-    const Vector2 mousePos = GetMousePosition();
+    const Vector2 rawMousePos = GetMousePosition();
+    const Vector2 mousePos = {
+        rawMousePos.x * (800.0f / GetScreenWidth()),
+        rawMousePos.y * (600.0f / GetScreenHeight())
+    };
 
     if (inv.m_upgradePoints > 0)
     {

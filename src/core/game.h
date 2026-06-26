@@ -54,4 +54,6 @@ private:
 
     /* Contrôle d'état d'inventaire */
     bool m_isInventoryOpen;
+
+    RenderTexture2D m_target;
 };

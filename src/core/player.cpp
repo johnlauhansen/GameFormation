@@ -10,11 +10,37 @@ Player::Player(Vector2 startPosition)
     , m_direction(Direction::Down)
     , m_attackTimer(0.0f)
     , m_attackDuration(0.25f)
+    , m_health(100.0f)
+    , m_maxHealth(100.0f)
+    , m_magic(100.0f)
+    , m_maxMagic(100.0f)
+    , m_rupees(0)
 {
 }
 
 void Player::Update(float deltaTime)
 {
+    /* Régénération passive de la magie */
+    m_magic += 5.0f * deltaTime;
+    if (m_magic > m_maxMagic)
+    {
+        m_magic = m_maxMagic;
+    }
+
+    /* Touches de débogage pour tester le HUD */
+    if (IsKeyPressed(KEY_K))
+    {
+        SetHealth(m_health - 10.0f); /* Enlever un demi-cœur */
+    }
+    if (IsKeyPressed(KEY_H))
+    {
+        SetHealth(m_health + 10.0f); /* Régénérer un demi-cœur */
+    }
+    if (IsKeyPressed(KEY_P))
+    {
+        AddRupees(15); /* Gagner 15 rubis */
+    }
+
     if (m_state == PlayerState::Attacking)
     {
         m_attackTimer -= deltaTime;
