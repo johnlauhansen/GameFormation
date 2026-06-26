@@ -60,47 +60,47 @@ FetchContent_MakeAvailable(raylib json)
 
 # 📦 Liste des fichiers sources partagés (le cœur du moteur de jeu)
 set(CORE_SOURCES
-    src/core/player.h
-    src/core/player.cpp
-    src/core/inventory.h
-    src/core/ground_pickup.h
-    src/core/hud.h
-    src/core/hud.cpp
-    src/core/destructible.h
-    src/core/destructible.cpp
-    src/core/npc.h
-    src/core/npc.cpp
-    src/core/enemy.h
-    src/core/enemy.cpp
-    src/core/enemy_behavior.h
-    src/core/enemy_behavior.cpp
-    src/core/entity_manager.h
-    src/core/entity_manager.cpp
-    src/core/dialogue_system.h
-    src/core/dialogue_system.cpp
+    src/core/player/player.h
+    src/core/player/player.cpp
+    src/core/player/inventory.h
+    src/core/entity/ground_pickup.h
+    src/core/ui/hud.h
+    src/core/ui/hud.cpp
+    src/core/entity/destructible.h
+    src/core/entity/destructible.cpp
+    src/core/entity/npc.h
+    src/core/entity/npc.cpp
+    src/core/entity/enemy.h
+    src/core/entity/enemy.cpp
+    src/core/entity/enemy_behavior.h
+    src/core/entity/enemy_behavior.cpp
+    src/core/entity/entity_manager.h
+    src/core/entity/entity_manager.cpp
+    src/core/system/dialogue_system.h
+    src/core/system/dialogue_system.cpp
     src/core/database.h
     src/core/database.cpp
     src/core/event_system.h
     src/core/event_system.cpp
-    src/core/combat_system.h
-    src/core/combat_system.cpp
-    src/core/physics_system.h
-    src/core/physics_system.cpp
-    src/core/spatial_grid.h
-    src/core/spatial_grid.cpp
-    src/core/camera_controller.h
-    src/core/camera_controller.cpp
-    src/core/scene.h
-    src/core/scene_manager.h
-    src/core/scene_manager.cpp
-    src/core/title_scene.h
-    src/core/title_scene.cpp
-    src/core/gameplay_scene.h
-    src/core/gameplay_scene.cpp
-    src/core/options_scene.h
-    src/core/options_scene.cpp
-    src/core/inventory_scene.h
-    src/core/inventory_scene.cpp
+    src/core/system/combat_system.h
+    src/core/system/combat_system.cpp
+    src/core/system/physics_system.h
+    src/core/system/physics_system.cpp
+    src/core/system/spatial_grid.h
+    src/core/system/spatial_grid.cpp
+    src/core/system/camera_controller.h
+    src/core/system/camera_controller.cpp
+    src/core/scene/scene.h
+    src/core/scene/scene_manager.h
+    src/core/scene/scene_manager.cpp
+    src/core/scene/title_scene.h
+    src/core/scene/title_scene.cpp
+    src/core/scene/gameplay_scene.h
+    src/core/scene/gameplay_scene.cpp
+    src/core/scene/options_scene.h
+    src/core/scene/options_scene.cpp
+    src/core/scene/inventory_scene.h
+    src/core/scene/inventory_scene.cpp
     src/core/game_world.h
     src/core/game_world.cpp
     src/core/game.h
@@ -115,9 +115,27 @@ set(CORE_SOURCES
 # 🎯 CIBLE 1 (Jeu Principal) : Le Jeu Zelda 2D
 add_executable(gameFormation src/main.cpp ${CORE_SOURCES})
 target_link_libraries(gameFormation PRIVATE raylib nlohmann_json::nlohmann_json)
-target_include_directories(gameFormation PRIVATE src ${raylib_SOURCE_DIR}/src)
+target_include_directories(gameFormation PRIVATE 
+    src 
+    src/core 
+    src/core/player 
+    src/core/entity 
+    src/core/system 
+    src/core/scene 
+    src/core/ui 
+    ${raylib_SOURCE_DIR}/src
+)
 
 # 🎯 CIBLE 2 (Sous-projet / Sandbox) : Le bac à sable pour expérimenter le gameplay
 add_executable(gameplay_sandbox src/sandbox.cpp ${CORE_SOURCES})
 target_link_libraries(gameplay_sandbox PRIVATE raylib nlohmann_json::nlohmann_json)
-target_include_directories(gameplay_sandbox PRIVATE src ${raylib_SOURCE_DIR}/src)
+target_include_directories(gameplay_sandbox PRIVATE 
+    src 
+    src/core 
+    src/core/player 
+    src/core/entity 
+    src/core/system 
+    src/core/scene 
+    src/core/ui 
+    ${raylib_SOURCE_DIR}/src
+)
