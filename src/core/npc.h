@@ -50,6 +50,12 @@ class Npc
 public:
     Npc(const std::string& name, NpcType type, Vector2 startPos);
 
+    /* Gestion explicite de la copie et du déplacement (m_quest utilise std::unique_ptr) */
+    Npc(const Npc&) = delete;
+    Npc& operator=(const Npc&) = delete;
+    Npc(Npc&&) noexcept = default;
+    Npc& operator=(Npc&&) noexcept = default;
+
     void Update(float deltaTime, const class TileMap& tileMap);
     void Draw() const;
 

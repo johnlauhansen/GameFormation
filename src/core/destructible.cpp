@@ -14,6 +14,8 @@ Destructible::Destructible(DestructibleType type, Vector2 position)
     if (m_type == DestructibleType::Crate)
     {
         m_vulnerableDamageTypes.push_back(DamageType::Blunt);
+        m_maxHealth = 15.0f;
+        m_currentHealth = 15.0f;
     }
     else if (m_type == DestructibleType::Plant)
     {

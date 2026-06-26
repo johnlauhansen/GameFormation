@@ -392,3 +392,25 @@ bool Enemy::TakeDamage(float amount)
 
     return true;
 }
+
+void Enemy::SetStatic()
+{
+    m_movementType = MovementType::Static;
+}
+
+void Enemy::SetPatrolZone(float radius, float speed)
+{
+    m_movementType = MovementType::PatrolZone;
+    m_patrolRadius = radius;
+    m_speed = speed;
+    m_patrolTarget = m_position;
+}
+
+void Enemy::SetDefinedPath(const std::vector<Vector2>& waypoints, float speed)
+{
+    m_movementType = MovementType::DefinedPath;
+    m_waypoints = waypoints;
+    m_speed = speed;
+    m_currentWaypointIndex = 0;
+    m_pathForward = true;
+}

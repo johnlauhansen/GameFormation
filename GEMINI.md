@@ -46,6 +46,9 @@ gameFormation/
 │   │   ├── inventory.h         # Item & Inventory systems, spent points, Wide Enums
 │   │   ├── npc.h/.cpp          # NPCs: Dialogue, Quest, and Merchant systems
 │   │   ├── enemy.h/.cpp         # Enemies: Slime, Octorok, Moblin and projectile shooting
+│   │   ├── dialogue_system.h/.cpp # DialogueSystem: sequence speech, merchant shop UI & inputs
+│   │   ├── combat_system.h/.cpp   # CombatSystem: sword/boomerang physics, damage resolution
+│   │   ├── physics_system.h/.cpp  # PhysicsSystem: players sliding collision checks & tile glides
 │   │   ├── game_world.h/.cpp   # GameWorld: camera, entities, and ground pickups resolver
 │   │   └── game.h/.cpp         # Main Game: screens state machine (Title, Game, Options)
 │   │
@@ -76,20 +79,20 @@ Below is the structured relational class layout of **gameFormation**, outlining 
                                          | (owns & updates)
                                          v
                                +-------------------+
-                               |  GameWorld Class  | <--- [Resolves camera, collisions, updates loop]
-                               +----+----+---------+
-                                    |    |
-      +-----------------------------+    +-----------------------------+
-      | (owns & draws in Mode2D)                                       | (owns & updates)
-      v                                                                v
-+--------------+                                                +--------------+
-|   TileMap    | <--- [Visual layout, 1D grid,                  |    Player    | <--- [Movement, slash hitboxes,
-+--------------+       AABB solid collision mask]               +------+-------+       health, magic & rupees]
-                                                                       | (owns)
-                                                                       v
-                                                                +--------------+
-                                                                |  Inventory   | <--- [Weapon lists, elemental cycles,
-                                                                +--------------+       available forge points]
+                               |  GameWorld Class  | <--- [Central Orchestrator: camera & entities]
+                               +----+----+----+----+
+                                    |    |    |
+       +----------------------------+    |    +----------------------------+
+       | (owns)                          | (owns)                          | (delegates updates)
+       v                                 v                                 v
++--------------+                 +--------------+                 +--------------------+
+|   TileMap    | <--- [Grid]     |    Player    |                 | Active Subsystems  |
++--------------+                 +------+-------+                 |                    |
+                                        | (owns)                  | - DialogueSystem   |
+                                        v                         | - CombatSystem     |
+                                 +--------------+                 | - PhysicsSystem    |
+                                 |  Inventory   |                 +--------------------+
+                                 +--------------+
 
                                +-------------------+
                                |  GameWorld Class  |
@@ -107,7 +110,7 @@ Below is the structured relational class layout of **gameFormation**, outlining 
 |                                                    |
 |  - std::vector<Npc> -------------------------------+----> [Npc Components]
 |    * Villager, QuestGiver, Merchant                |      - Dialogue seq state-machine
-|                                                    |      - Active Quest (Crate hunts progress)
+|    * Static, PatrolZone, or DefinedPath movement   |      - Active Quest (Crate hunts progress)
 |                                                    |      - Merchant Catalog (potion, points, items)
 |                                                    |
 |  - std::vector<Enemy> -----------------------------+----> [Enemy Projectiles]

@@ -72,6 +72,12 @@ set(CORE_SOURCES
     src/core/npc.cpp
     src/core/enemy.h
     src/core/enemy.cpp
+    src/core/dialogue_system.h
+    src/core/dialogue_system.cpp
+    src/core/combat_system.h
+    src/core/combat_system.cpp
+    src/core/physics_system.h
+    src/core/physics_system.cpp
     src/core/game_world.h
     src/core/game_world.cpp
     src/core/game.h

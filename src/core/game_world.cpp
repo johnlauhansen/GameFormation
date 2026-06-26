@@ -1,5 +1,7 @@
 #include "game_world.h"
 #include "map/map_loader.h"
+#include "combat_system.h"
+#include "physics_system.h"
 #include <cmath>
 
 GameWorld::GameWorld()
@@ -61,14 +63,59 @@ bool GameWorld::LoadMap(const std::string& filePath)
     m_pickups.push_back(swordPickup);
     m_pickups.push_back(boomerangPickup);
 
+    /* Fonction d'aide locale pour trouver un emplacement de spawn sécurisé hors des murs */
+    auto findSafeSpawn = [this](Vector2 desiredPos, float width, float height) -> Vector2 {
+        Vector2 pos = desiredPos;
+        Rectangle rect = { pos.x - width / 2.0f, pos.y - height / 2.0f, width, height };
+        
+        if (!m_tileMap.CheckCollision(rect))
+        {
+            return pos;
+        }
+
+        /* Si collision, on spirale autour pour trouver une tuile libre */
+        float step = 32.0f; /* Taille de tuile */
+        int maxAttempts = 24;
+        int stepCount = 1;
+        int stepLimit = 1;
+        int stepDir = 0; /* 0: D, 1: S, 2: G, 3: N */
+
+        while (m_tileMap.CheckCollision(rect) && maxAttempts > 0)
+        {
+            if (stepDir == 0) pos.x += step;
+            else if (stepDir == 1) pos.y += step;
+            else if (stepDir == 2) pos.x -= step;
+            else if (stepDir == 3) pos.y -= step;
+
+            rect.x = pos.x - width / 2.0f;
+            rect.y = pos.y - height / 2.0f;
+
+            stepCount++;
+            if (stepCount > stepLimit)
+            {
+                stepCount = 1;
+                if (stepDir == 1 || stepDir == 3)
+                {
+                    stepLimit++;
+                }
+                stepDir = (stepDir + 1) % 4;
+            }
+            maxAttempts--;
+        }
+        return pos;
+    };
+
     /* 4. Génération des objets destructibles (mélange de spawner dynamique et d'objets Tiled) */
     m_destructibles.clear();
 
-    Destructible crate1(DestructibleType::Crate, { spawnPos.x - 40.0f, spawnPos.y + 40.0f });
-    Destructible plant1(DestructibleType::Plant, { spawnPos.x + 40.0f, spawnPos.y + 40.0f });
+    Vector2 crate1Pos = findSafeSpawn({ spawnPos.x - 40.0f, spawnPos.y + 40.0f }, 32.0f, 32.0f);
+    Destructible crate1(DestructibleType::Crate, crate1Pos);
     
-    /* Monument mystique Custom : vulnérable aux attaques contondantes (Blunt) OU au Feu (Fire) ! */
-    Destructible customObj(DestructibleType::Custom, { spawnPos.x, spawnPos.y - 60.0f });
+    Vector2 plant1Pos = findSafeSpawn({ spawnPos.x + 40.0f, spawnPos.y + 40.0f }, 32.0f, 32.0f);
+    Destructible plant1(DestructibleType::Plant, plant1Pos);
+    
+    Vector2 customObjPos = findSafeSpawn({ spawnPos.x, spawnPos.y - 60.0f }, 32.0f, 32.0f);
+    Destructible customObj(DestructibleType::Custom, customObjPos);
     customObj.AddVulnerableDamageType(DamageType::Blunt);
     customObj.AddVulnerableElement(ElementType::Fire);
     customObj.SetMaxHealth(50.0f);
@@ -105,48 +152,55 @@ bool GameWorld::LoadMap(const std::string& filePath)
     m_npcs.clear();
     
     // Un villageois sympathique qui patrouille
-    Npc villager("Jean le Villageois", NpcType::Villager, { spawnPos.x - 120.0f, spawnPos.y + 120.0f });
+    Vector2 villagerPos = findSafeSpawn({ spawnPos.x - 120.0f, spawnPos.y + 120.0f }, 32.0f, 32.0f);
+    Npc villager("Jean le Villageois", NpcType::Villager, villagerPos);
     villager.SetPatrolZone(100.0f, 40.0f);
-    m_npcs.push_back(villager);
+    m_npcs.push_back(std::move(villager));
 
     // Un donneur de quête statique à côté des caisses
-    Npc questGiver("Bucheron Bourru", NpcType::QuestGiver, { spawnPos.x + 160.0f, spawnPos.y - 80.0f });
+    Vector2 questGiverPos = findSafeSpawn({ spawnPos.x + 160.0f, spawnPos.y - 80.0f }, 32.0f, 32.0f);
+    Npc questGiver("Bucheron Bourru", NpcType::QuestGiver, questGiverPos);
     questGiver.SetStatic();
     questGiver.ConfigureQuest("crate_hunt", "Detruire les caisses encombrantes", 5, 80, 2);
-    m_npcs.push_back(questGiver);
+    m_npcs.push_back(std::move(questGiver));
 
     // Un marchand ambulant avec des objets à vendre
-    Npc merchant("Marchand Ambulant", NpcType::Merchant, { spawnPos.x - 180.0f, spawnPos.y - 120.0f });
+    Vector2 merchantPos = findSafeSpawn({ spawnPos.x - 180.0f, spawnPos.y - 120.0f }, 32.0f, 32.0f);
+    Npc merchant("Marchand Ambulant", NpcType::Merchant, merchantPos);
     merchant.SetStatic();
     merchant.AddMerchantItem("heal_potion", "Potion de Sante", 10, "Restaure completement vos coeurs.");
     merchant.AddMerchantItem("forge_point", "Infu de Point de Forge", 25, "Ajoute 1 point de forge precieux.");
     merchant.AddMerchantItem("boomerang", "Boomerang d'acier", 40, "Arme de jet rotative secondaire.");
-    m_npcs.push_back(merchant);
+    m_npcs.push_back(std::move(merchant));
 
     /* 7. Génération des Ennemis */
     m_enemies.clear();
 
     // Quelques Slimes patrouilleurs
-    Enemy slime1("Slime Vert", EnemyType::Slime, { spawnPos.x + 200.0f, spawnPos.y + 200.0f });
+    Vector2 slime1Pos = findSafeSpawn({ spawnPos.x + 200.0f, spawnPos.y + 200.0f }, 32.0f, 32.0f);
+    Enemy slime1("Slime Vert", EnemyType::Slime, slime1Pos);
     slime1.SetPatrolZone(80.0f, 50.0f);
     m_enemies.push_back(slime1);
 
-    Enemy slime2("Slime Agile", EnemyType::Slime, { spawnPos.x - 200.0f, spawnPos.y + 250.0f });
+    Vector2 slime2Pos = findSafeSpawn({ spawnPos.x - 200.0f, spawnPos.y + 250.0f }, 32.0f, 32.0f);
+    Enemy slime2("Slime Agile", EnemyType::Slime, slime2Pos);
     slime2.SetPatrolZone(60.0f, 70.0f);
     m_enemies.push_back(slime2);
 
     // Un Octorok à distance
-    Enemy octorok("Octorok Rouge", EnemyType::Octorok, { spawnPos.x + 300.0f, spawnPos.y - 150.0f });
+    Vector2 octorokPos = findSafeSpawn({ spawnPos.x + 300.0f, spawnPos.y - 150.0f }, 32.0f, 32.0f);
+    Enemy octorok("Octorok Rouge", EnemyType::Octorok, octorokPos);
     octorok.SetPatrolZone(50.0f, 30.0f);
     m_enemies.push_back(octorok);
 
     // Un Moblin d'élite patrouillant sur un chemin défini
-    Enemy moblin("Moblin de Garde", EnemyType::Moblin, { spawnPos.x - 250.0f, spawnPos.y - 200.0f });
+    Vector2 moblinPos = findSafeSpawn({ spawnPos.x - 250.0f, spawnPos.y - 200.0f }, 36.0f, 36.0f);
+    Enemy moblin("Moblin de Garde", EnemyType::Moblin, moblinPos);
     std::vector<Vector2> moblinWaypoints = {
-        { spawnPos.x - 250.0f, spawnPos.y - 200.0f },
-        { spawnPos.x - 100.0f, spawnPos.y - 200.0f },
-        { spawnPos.x - 100.0f, spawnPos.y - 350.0f },
-        { spawnPos.x - 250.0f, spawnPos.y - 350.0f }
+        moblinPos,
+        { moblinPos.x + 150.0f, moblinPos.y },
+        { moblinPos.x + 150.0f, moblinPos.y - 150.0f },
+        { moblinPos.x, moblinPos.y - 150.0f }
     };
     moblin.SetDefinedPath(moblinWaypoints, 60.0f);
     m_enemies.push_back(moblin);
@@ -160,104 +214,18 @@ bool GameWorld::LoadMap(const std::string& filePath)
 
 void GameWorld::Update(float deltaTime)
 {
-    /* Recherche d'un PNJ actif en dialogue */
-    Npc* activeNpc = nullptr;
-    for (auto& npc : m_npcs)
+    /* 1. Si le système de dialogue est actif, on met à jour uniquement celui-ci (jeu figé) */
+    if (m_dialogueSystem.IsActive())
     {
-        if (npc.IsInDialogue())
-        {
-            activeNpc = &npc;
-            break;
-        }
-    }
-
-    if (activeNpc != nullptr)
-    {
-        /* On gère les inputs spécifiques de dialogue ou magasin */
-        if (activeNpc->IsShopActive())
-        {
-            if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W))
-            {
-                int count = (int)activeNpc->GetMerchantItems().size();
-                if (count > 0)
-                {
-                    int idx = activeNpc->GetSelectedShopIndex();
-                    activeNpc->SetSelectedShopIndex((idx - 1 + count) % count);
-                }
-            }
-            if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S))
-            {
-                int count = (int)activeNpc->GetMerchantItems().size();
-                if (count > 0)
-                {
-                    int idx = activeNpc->GetSelectedShopIndex();
-                    activeNpc->SetSelectedShopIndex((idx + 1) % count);
-                }
-            }
-            if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_E))
-            {
-                const auto& items = activeNpc->GetMerchantItems();
-                int idx = activeNpc->GetSelectedShopIndex();
-                if (idx >= 0 && idx < (int)items.size())
-                {
-                    const auto& item = items[idx];
-                    if (m_player.GetRupees() >= item.price)
-                    {
-                        m_player.AddRupees(-item.price);
-                        if (item.itemId == "heal_potion")
-                        {
-                            m_player.SetHealth(m_player.GetHealth() + 30.0f);
-                            m_hud.TriggerNotification("Achete : " + item.name + " (Vie Restauree) !", 2.0f);
-                        }
-                        else if (item.itemId == "forge_point")
-                        {
-                            m_player.GetInventory().m_upgradePoints += 1;
-                            m_hud.TriggerNotification("Achete : " + item.name + " (+1 Pt de Forge) !", 2.0f);
-                        }
-                        else if (item.itemId == "boomerang")
-                        {
-                            m_player.GetInventory().AddItem(item.itemId);
-                            m_hud.TriggerNotification("Achete : " + item.name + " (Obtenu) !", 2.0f);
-                        }
-                    }
-                    else
-                    {
-                        m_hud.TriggerNotification("Pas assez de Rubis !", 1.5f);
-                    }
-                }
-            }
-            if (IsKeyPressed(KEY_ESCAPE))
-            {
-                activeNpc->CloseDialogue();
-            }
-        }
-        else
-        {
-            if (IsKeyPressed(KEY_E) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE))
-            {
-                activeNpc->Interact(m_player);
-            }
-        }
-
-        m_hud.Update(deltaTime);
+        m_dialogueSystem.Update(deltaTime, m_player, m_hud);
         return;
     }
 
     const Vector2 oldPos = m_player.GetPosition();
 
+    /* 2. Mettre à jour les acteurs */
     m_player.Update(deltaTime);
 
-    const Vector2 currentPos = m_player.GetPosition();
-    const Rectangle collisionRect = m_player.GetCollisionRect();
-
-    /* 1. Collisions contre les murs de la carte (TileMap) */
-    if (m_tileMap.CheckCollision(collisionRect))
-    {
-        const Vector2 resolvedPos = m_tileMap.ResolveCollision(currentPos, oldPos, collisionRect.width, collisionRect.height);
-        m_player.SetPosition(resolvedPos);
-    }
-
-    /* 2. Mettre à jour les objets destructibles, PNJ et Ennemis */
     for (auto& dest : m_destructibles)
     {
         dest.Update(deltaTime);
@@ -273,124 +241,30 @@ void GameWorld::Update(float deltaTime)
         enemy.Update(deltaTime, m_tileMap, m_player.GetPosition());
     }
 
-    /* Détecter le bouton pour initier un dialogue */
+    /* 3. Résoudre les déplacements physiques glissants du joueur via PhysicsSystem */
+    const Vector2 resolvedPos = PhysicsSystem::ResolvePlayerMovement(m_player, oldPos, m_tileMap, m_destructibles);
+    m_player.SetPosition(resolvedPos);
+
+    /* 4. Initier un dialogue si le joueur appuie sur E à proximité d'un PNJ */
     if (IsKeyPressed(KEY_E))
     {
         for (auto& npc : m_npcs)
         {
             if (npc.IsPlayerNear(m_player.GetPosition()))
             {
-                npc.Interact(m_player);
+                m_dialogueSystem.StartInteraction(npc, m_player);
                 break;
             }
         }
     }
 
-    /* 3. Collisions glissantes contre les objets destructibles physiques solides */
-    const Vector2 posAfterTileCheck = m_player.GetPosition();
-    Vector2 finalPos = posAfterTileCheck;
+    /* 5. Gérer le combat (Épée, Boomerang, et Dégâts ennemis sur joueur) via CombatSystem */
+    CombatSystem::ResolvePlayerSwordAttacks(m_player, m_enemies, m_destructibles, m_pickups, m_npcs);
 
-    /* Essai sur l'axe X */
-    m_player.SetPosition({ posAfterTileCheck.x, oldPos.y });
-    bool collideX = false;
-    for (const auto& dest : m_destructibles)
-    {
-        if (dest.IsAlive() && CheckCollisionRecs(m_player.GetCollisionRect(), dest.GetCollisionRect()))
-        {
-            collideX = true;
-            break;
-        }
-    }
-    if (collideX)
-    {
-        finalPos.x = oldPos.x;
-    }
-
-    /* Essai sur l'axe Y */
-    m_player.SetPosition({ finalPos.x, posAfterTileCheck.y });
-    bool collideY = false;
-    for (const auto& dest : m_destructibles)
-    {
-        if (dest.IsAlive() && CheckCollisionRecs(m_player.GetCollisionRect(), dest.GetCollisionRect()))
-        {
-            collideY = true;
-            break;
-        }
-    }
-    if (collideY)
-    {
-        finalPos.y = oldPos.y;
-    }
-
-    m_player.SetPosition(finalPos);
-
-    /* 4. Détection des attaques à l'épée sur les objets destructibles et les ennemis */
-    if (m_player.GetState() == PlayerState::Attacking)
-    {
-        const Rectangle attackRect = m_player.GetAttackRect();
-        const Item* sword = m_player.GetInventory().GetItem("sword");
-        if (sword != nullptr && sword->collected)
-        {
-            for (auto& dest : m_destructibles)
-            {
-                if (dest.IsAlive() && CheckCollisionRecs(attackRect, dest.GetCollisionRect()))
-                {
-                    bool wasAlive = dest.IsAlive();
-                    /* L'épée inflige ses dégâts avec son type physique et son élément magique actifs */
-                    if (dest.TakeDamage(sword->damage, sword->damageType, sword->element))
-                    {
-                        if (wasAlive && !dest.IsAlive())
-                        {
-                            /* Spawner un rubis vert */
-                            GroundPickup rupee;
-                            rupee.itemId = "rupee";
-                            rupee.name = "RUBIS VERT";
-                            rupee.position = dest.GetPosition();
-                            rupee.active = true;
-                            m_pickups.push_back(rupee);
-
-                            if (dest.GetType() == DestructibleType::Crate)
-                            {
-                                for (auto& npc : m_npcs)
-                                {
-                                    auto* q = npc.GetQuest();
-                                    if (q && q->state == QuestState::InProgress && q->id == "crate_hunt")
-                                    {
-                                        q->currentKillCount++;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            for (auto& enemy : m_enemies)
-            {
-                if (enemy.IsAlive() && CheckCollisionRecs(attackRect, enemy.GetCollisionRect()))
-                {
-                    if (enemy.TakeDamage(sword->damage))
-                    {
-                        if (!enemy.IsAlive())
-                        {
-                            GroundPickup rupee;
-                            rupee.itemId = "rupee";
-                            rupee.name = "RUBIS VERT";
-                            rupee.position = enemy.GetPosition();
-                            rupee.active = true;
-                            m_pickups.push_back(rupee);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /* 5. Lancement et mise à jour du Boomerang */
+    /* Gestion de l'input et initialisation du boomerang dans GameWorld, puis résolution physique dans CombatSystem */
     if (m_player.GetInventory().HasItem("boomerang"))
     {
         const Item* boomStats = m_player.GetInventory().GetItem("boomerang");
-        
         bool isBoomerangPressed = IsKeyPressed(KEY_B);
         if (IsGamepadAvailable(0))
         {
@@ -403,7 +277,6 @@ void GameWorld::Update(float deltaTime)
 
         if (isBoomerangPressed && !m_boomerang.active && m_player.GetState() != PlayerState::Attacking)
         {
-            /* Le lancer du boomerang consomme 15 points de magie */
             if (m_player.GetMagic() >= 15.0f)
             {
                 m_player.SetMagic(m_player.GetMagic() - 15.0f);
@@ -436,163 +309,11 @@ void GameWorld::Update(float deltaTime)
         }
     }
 
-    if (m_boomerang.active)
-    {
-        m_boomerang.rotation += 720.0f * deltaTime;
+    CombatSystem::ResolvePlayerBoomerangAttacks(m_player, m_boomerang, m_enemies, m_destructibles, m_pickups, m_npcs, m_tileMap, deltaTime);
 
-        if (!m_boomerang.returning)
-        {
-            m_boomerang.position.x += m_boomerang.velocity.x * deltaTime;
-            m_boomerang.position.y += m_boomerang.velocity.y * deltaTime;
+    CombatSystem::ResolveEnemyDamageToPlayer(m_player, m_enemies, m_playerHitCooldown, m_hud, deltaTime);
 
-            const float dx = m_boomerang.position.x - m_boomerang.originPos.x;
-            const float dy = m_boomerang.position.y - m_boomerang.originPos.y;
-            const float distance = std::sqrt((dx * dx) + (dy * dy));
-
-            const Rectangle boomRect = { m_boomerang.position.x - 8.0f, m_boomerang.position.y - 8.0f, 16.0f, 16.0f };
-            
-            /* Collision du boomerang contre les objets destructibles et ennemis */
-            const Item* boomStats = m_player.GetInventory().GetItem("boomerang");
-            if (boomStats != nullptr)
-            {
-                for (auto& dest : m_destructibles)
-                {
-                    if (dest.IsAlive() && CheckCollisionRecs(boomRect, dest.GetCollisionRect()))
-                    {
-                        bool wasAlive = dest.IsAlive();
-                        if (dest.TakeDamage(boomStats->damage, boomStats->damageType, boomStats->element))
-                        {
-                            if (wasAlive && !dest.IsAlive())
-                            {
-                                /* Spawner un rubis vert */
-                                GroundPickup rupee;
-                                rupee.itemId = "rupee";
-                                rupee.name = "RUBIS VERT";
-                                rupee.position = dest.GetPosition();
-                                rupee.active = true;
-                                m_pickups.push_back(rupee);
-
-                                if (dest.GetType() == DestructibleType::Crate)
-                                {
-                                    for (auto& npc : m_npcs)
-                                    {
-                                        auto* q = npc.GetQuest();
-                                        if (q && q->state == QuestState::InProgress && q->id == "crate_hunt")
-                                        {
-                                            q->currentKillCount++;
-                                        }
-                                    }
-                                }
-                            }
-                            m_boomerang.returning = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (!m_boomerang.returning)
-                {
-                    for (auto& enemy : m_enemies)
-                    {
-                        if (enemy.IsAlive() && CheckCollisionRecs(boomRect, enemy.GetCollisionRect()))
-                        {
-                            if (enemy.TakeDamage(boomStats->damage))
-                            {
-                                if (!enemy.IsAlive())
-                                {
-                                    GroundPickup rupee;
-                                    rupee.itemId = "rupee";
-                                    rupee.name = "RUBIS VERT";
-                                    rupee.position = enemy.GetPosition();
-                                    rupee.active = true;
-                                    m_pickups.push_back(rupee);
-                                }
-                                m_boomerang.returning = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-
-            /* Collision du boomerang contre les murs */
-            if (distance >= m_boomerang.maxRange || m_tileMap.CheckCollision(boomRect))
-            {
-                m_boomerang.returning = true;
-            }
-        }
-        else
-        {
-            const Vector2 playerPos = m_player.GetPosition();
-            const Vector2 dirToPlayer = { playerPos.x - m_boomerang.position.x, playerPos.y - m_boomerang.position.y };
-            const float length = std::sqrt((dirToPlayer.x * dirToPlayer.x) + (dirToPlayer.y * dirToPlayer.y));
-
-            if (length <= 20.0f)
-            {
-                m_boomerang.active = false;
-            }
-            else
-            {
-                m_boomerang.position.x += (dirToPlayer.x / length) * m_boomerang.speed * deltaTime;
-                m_boomerang.position.y += (dirToPlayer.y / length) * m_boomerang.speed * deltaTime;
-            }
-        }
-    }
-
-    /* 6. Collisions du joueur avec les ennemis ou leurs projectiles */
-    if (m_playerHitCooldown > 0.0f)
-    {
-        m_playerHitCooldown -= deltaTime;
-    }
-
-    if (m_playerHitCooldown <= 0.0f)
-    {
-        bool playerDamaged = false;
-        float damageAmount = 0.0f;
-
-        for (const auto& enemy : m_enemies)
-        {
-            if (enemy.IsAlive())
-            {
-                /* Dégâts de contact */
-                if (CheckCollisionRecs(m_player.GetCollisionRect(), enemy.GetCollisionRect()))
-                {
-                    playerDamaged = true;
-                    damageAmount = enemy.GetDamage();
-                    break;
-                }
-
-                /* Dégâts de projectile */
-                for (const auto& proj : enemy.GetProjectiles())
-                {
-                    if (proj.active)
-                    {
-                        Rectangle projRect = { proj.position.x - proj.radius, proj.position.y - proj.radius, proj.radius * 2.0f, proj.radius * 2.0f };
-                        if (CheckCollisionRecs(m_player.GetCollisionRect(), projRect))
-                        {
-                            playerDamaged = true;
-                            damageAmount = enemy.GetDamage();
-                            break;
-                        }
-                    }
-                }
-                
-                if (playerDamaged)
-                {
-                    break;
-                }
-            }
-        }
-
-        if (playerDamaged)
-        {
-            m_player.SetHealth(m_player.GetHealth() - damageAmount);
-            m_playerHitCooldown = 1.0f; /* 1 seconde d'invulnérabilité */
-            m_hud.TriggerNotification("AIE !", 1.0f);
-        }
-    }
-
-    /* Détection de collecte d'objets */
+    /* 6. Détection de collecte des objets au sol */
     for (auto& pickup : m_pickups)
     {
         if (pickup.active)
@@ -609,7 +330,6 @@ void GameWorld::Update(float deltaTime)
                 else
                 {
                     m_player.GetInventory().AddItem(pickup.itemId);
-                    /* Déclenchement de la bannière de notification */
                     m_hud.TriggerNotification("Vous avez obtenu : " + pickup.name + " !", 3.0f);
                 }
             }
@@ -719,79 +439,10 @@ void GameWorld::Draw() const
 
     m_hud.Draw(m_player, m_tileMap, m_destructibles, m_pickups);
 
-    /* Recherche d'un PNJ en dialogue actif pour dessiner la boîte de dialogue en espace écran */
-    const Npc* activeNpc = nullptr;
-    for (const auto& npc : m_npcs)
+    /* Rendu du DialogueSystem en espace écran */
+    if (m_dialogueSystem.IsActive())
     {
-        if (npc.IsInDialogue())
-        {
-            activeNpc = &npc;
-            break;
-        }
-    }
-
-    if (activeNpc != nullptr)
-    {
-        /* 1. Boîte de dialogue standard */
-        int boxX = 50;
-        int boxY = 440;
-        int boxW = 700;
-        int boxH = 120;
-        
-        DrawRectangle(boxX, boxY, boxW, boxH, Fade(BLACK, 0.9f));
-        DrawRectangleLines(boxX, boxY, boxW, boxH, BLUE);
-        
-        /* Nom du PNJ */
-        DrawText(activeNpc->GetName().c_str(), boxX + 20, boxY + 15, 18, GOLD);
-        
-        /* Texte de dialogue */
-        std::string currentText = activeNpc->GetCurrentDialogueText();
-        DrawText(currentText.c_str(), boxX + 20, boxY + 45, 16, WHITE);
-
-        if (activeNpc->IsShopActive())
-        {
-            DrawText("[ENTREE/ESPACE] Acheter  [ECHAP] Quitter", boxX + 400, boxY + 15, 12, GRAY);
-            
-            /* Dessiner la boutique */
-            const auto& items = activeNpc->GetMerchantItems();
-            int shopSel = activeNpc->GetSelectedShopIndex();
-            
-            int shopX = 50;
-            int shopY = 160;
-            int shopW = 700;
-            int shopH = 260;
-            
-            DrawRectangle(shopX, shopY, shopW, shopH, Fade(BLACK, 0.95f));
-            DrawRectangleLines(shopX, shopY, shopW, shopH, GOLD);
-            DrawText("BOUTIQUE DU MARCHAND", shopX + 20, shopY + 15, 20, GOLD);
-            DrawText(TextFormat("Vos Rubis : %d", m_player.GetRupees()), shopX + 500, shopY + 15, 16, GREEN);
-            
-            for (size_t i = 0; i < items.size(); ++i)
-            {
-                const auto& item = items[i];
-                int itemY = shopY + 60 + (int)i * 50;
-                bool isSelected = ((int)i == shopSel);
-                
-                Color itemColor = isSelected ? YELLOW : WHITE;
-                if (isSelected)
-                {
-                    DrawRectangle(shopX + 15, itemY - 5, shopW - 30, 40, Fade(GRAY, 0.2f));
-                    DrawRectangleLines(shopX + 15, itemY - 5, shopW - 30, 40, YELLOW);
-                    DrawTriangle({ (float)shopX + 25, (float)itemY + 5 }, { (float)shopX + 25, (float)itemY + 20 }, { (float)shopX + 37, (float)itemY + 12.5f }, YELLOW);
-                }
-                
-                DrawText(item.name.c_str(), shopX + 50, itemY + 5, 16, itemColor);
-                DrawText(item.description.c_str(), shopX + 220, itemY + 7, 12, GRAY);
-                
-                std::string priceText = std::to_string(item.price) + " Rubis";
-                Color priceColor = (m_player.GetRupees() >= item.price) ? GREEN : RED;
-                DrawText(priceText.c_str(), shopX + 580, itemY + 5, 16, priceColor);
-            }
-        }
-        else
-        {
-            DrawText("Appuyez sur [E] ou [ENTREE] pour continuer...", boxX + 380, boxY + 95, 12, GRAY);
-        }
+        m_dialogueSystem.Draw(m_player);
     }
     else
     {

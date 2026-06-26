@@ -5,6 +5,7 @@
 #include "hud.h"
 #include "npc.h"
 #include "enemy.h"
+#include "dialogue_system.h"
 #include <raylib.h>
 #include <vector>
 #include <string>
@@ -57,6 +58,7 @@ private:
     std::vector<Npc> m_npcs;
     std::vector<Enemy> m_enemies;
     float m_playerHitCooldown;
+    DialogueSystem m_dialogueSystem;
     BoomerangProjectile m_boomerang;
     
     HUD m_hud;
