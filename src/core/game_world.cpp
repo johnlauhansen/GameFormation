@@ -2,6 +2,7 @@
 #include "map/map_loader.h"
 #include "combat_system.h"
 #include "physics_system.h"
+#include "database.h"
 #include <cmath>
 
 GameWorld::GameWorld()
@@ -272,25 +273,28 @@ bool GameWorld::LoadMap(const std::string& filePath)
         m_entityManager.AddNpc(std::move(merchant));
 
         // Quelques Slimes patrouilleurs
-        Vector2 slime1Pos = findSafeSpawn({ spawnPos.x + 200.0f, spawnPos.y + 200.0f }, 32.0f, 32.0f);
-        Enemy slime1("Slime Vert", EnemyType::Slime, slime1Pos);
+        EnemyTemplate slimeTmpl = Database::GetEnemyTemplate("Slime");
+        Vector2 slime1Pos = findSafeSpawn({ spawnPos.x + 200.0f, spawnPos.y + 200.0f }, slimeTmpl.width, slimeTmpl.height);
+        Enemy slime1("Slime Vert", slimeTmpl, slime1Pos);
         slime1.SetPatrolZone(80.0f, 50.0f);
         m_entityManager.AddEnemy(std::move(slime1));
 
-        Vector2 slime2Pos = findSafeSpawn({ spawnPos.x - 200.0f, spawnPos.y + 250.0f }, 32.0f, 32.0f);
-        Enemy slime2("Slime Agile", EnemyType::Slime, slime2Pos);
+        Vector2 slime2Pos = findSafeSpawn({ spawnPos.x - 200.0f, spawnPos.y + 250.0f }, slimeTmpl.width, slimeTmpl.height);
+        Enemy slime2("Slime Agile", slimeTmpl, slime2Pos);
         slime2.SetPatrolZone(60.0f, 70.0f);
         m_entityManager.AddEnemy(std::move(slime2));
 
         // Un Octorok à distance
-        Vector2 octorokPos = findSafeSpawn({ spawnPos.x + 300.0f, spawnPos.y - 150.0f }, 32.0f, 32.0f);
-        Enemy octorok("Octorok Rouge", EnemyType::Octorok, octorokPos);
+        EnemyTemplate octorokTmpl = Database::GetEnemyTemplate("Octorok");
+        Vector2 octorokPos = findSafeSpawn({ spawnPos.x + 300.0f, spawnPos.y - 150.0f }, octorokTmpl.width, octorokTmpl.height);
+        Enemy octorok("Octorok Rouge", octorokTmpl, octorokPos);
         octorok.SetPatrolZone(50.0f, 30.0f);
         m_entityManager.AddEnemy(std::move(octorok));
 
         // Un Moblin d'élite patrouillant sur un chemin défini
-        Vector2 moblinPos = findSafeSpawn({ spawnPos.x - 250.0f, spawnPos.y - 200.0f }, 36.0f, 36.0f);
-        Enemy moblin("Moblin de Garde", EnemyType::Moblin, moblinPos);
+        EnemyTemplate moblinTmpl = Database::GetEnemyTemplate("Moblin");
+        Vector2 moblinPos = findSafeSpawn({ spawnPos.x - 250.0f, spawnPos.y - 200.0f }, moblinTmpl.width, moblinTmpl.height);
+        Enemy moblin("Moblin de Garde", moblinTmpl, moblinPos);
         std::vector<Vector2> moblinWaypoints = {
             moblinPos,
             { moblinPos.x + 150.0f, moblinPos.y },
