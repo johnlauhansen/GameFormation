@@ -5,6 +5,7 @@
 #include "npc.h"
 #include "hud.h"
 #include "entity_manager.h"
+#include "event_system.h"
 #include "game_world.h"
 #include "map/tile_map.h"
 #include <cmath>
@@ -46,17 +47,10 @@ namespace CombatSystem
                         rupee.active = true;
                         entityManager.AddPickup(std::move(rupee));
 
-                        /* Progression de quête pour caisses détruites */
+                        /* Diffusion d'un événement global pour le système de quêtes */
                         if (dest.GetType() == DestructibleType::Crate)
                         {
-                            for (auto& npc : entityManager.GetNpcs())
-                            {
-                                auto* q = npc.GetQuest();
-                                if (q && q->state == QuestState::InProgress && q->id == "crate_hunt")
-                                {
-                                    q->currentKillCount++;
-                                }
-                            }
+                            EventSystem::PublishCrateDestroyed({ dest.GetPosition() });
                         }
                     }
                 }
@@ -132,14 +126,7 @@ namespace CombatSystem
 
                                 if (dest.GetType() == DestructibleType::Crate)
                                 {
-                                    for (auto& npc : entityManager.GetNpcs())
-                                    {
-                                        auto* q = npc.GetQuest();
-                                        if (q && q->state == QuestState::InProgress && q->id == "crate_hunt")
-                                        {
-                                            q->currentKillCount++;
-                                        }
-                                    }
+                                    EventSystem::PublishCrateDestroyed({ dest.GetPosition() });
                                 }
                             }
                             boomerang.returning = true;

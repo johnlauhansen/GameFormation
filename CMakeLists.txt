@@ -78,6 +78,8 @@ set(CORE_SOURCES
     src/core/entity_manager.cpp
     src/core/dialogue_system.h
     src/core/dialogue_system.cpp
+    src/core/event_system.h
+    src/core/event_system.cpp
     src/core/combat_system.h
     src/core/combat_system.cpp
     src/core/physics_system.h

@@ -1,6 +1,7 @@
 #include "npc.h"
 #include "player.h"
 #include "map/tile_map.h"
+#include "event_system.h"
 #include <cmath>
 #include <raymath.h>
 
@@ -385,6 +386,18 @@ void Npc::ConfigureQuest(const std::string& questId, const std::string& descript
     m_quest->currentKillCount = 0;
     m_quest->rewardRupees = rewardRupees;
     m_quest->rewardPoints = rewardPoints;
+
+    /* Abonnement au bus d'événements pour découpler les quêtes du CombatSystem */
+    if (questId == "crate_hunt")
+    {
+        EventSystem::SubscribeToCrateDestroyed([this](const CrateDestroyedEvent& e) {
+            (void)e; /* On ignore la position de la caisse pour l'instant */
+            if (this->m_quest && this->m_quest->state == QuestState::InProgress)
+            {
+                this->m_quest->currentKillCount++;
+            }
+        });
+    }
 }
 
 void Npc::AddMerchantItem(const std::string& itemId, const std::string& name, int price, const std::string& description)
